@@ -1,0 +1,27 @@
+Q1 — Ký ức đầu tiên của bạn là gì? · [M] · Bắt buộc
+
+Để nói về ký ức đầu tiên của em, là những mãnh ký ức ngắt quãng thời mẫu giáo pha trộn lẫn nhau.
+
+Trong số đó, để mà kể ký ức ấn tượng đầu tiên là về việc em được ông nội đón về từ trường mẫu giáo Hoa Hồng 1 tại Dĩ An bình dương. Thời điểm đó trường được xây ở vị trí thấp hơn so với đường lớn bên ngoài.
+Và khi được ông đưa về với chiếc xe máy (em không thể nhớ chính xác xe gì nhưng giống loại xe máy 78 thời xưa), khi lên con dóc từ trường ra đường thì bị hụt gas và té, khi đó có cả anh họ em ngồi sau, cả 3 ông cháu té lăn  ra và được các thầy cô ra đỡ dậy. Đây cũng là ký ức đầu tiên bị té xe với ông.
+
+
+Q2 — Tên con thú cưng bạn thích nhất, và những tên khác bạn muốn đặt · [N, M]
+
+Thú cưng em thích nhất là chó, từ thời ông nội em đã có nuôi chó, con đầu tiên là Phèn, đây là tên ông Nội đặt cho nó.
+Còn tên con chó em thích và cũng cưng nhất là Gấu, em không giỏi đặt tên nên chủ yếu chỉ gồm các tên đại trà và dễ nhớ như: Ki, Gấu, Mực, Lu.
+1 phần cũng vì e thích sự đơn giản
+
+Q3 — Bạn có đặt tên cho đồ vật mình sở hữu không? Liệt kê một số tên. · [N]
+Thật ra em chưa bao giờ đặt tên cho đồ vật mình cả, vì em chưa từng nghĩ sẽ đặt tên cho đồ vật, suy nghĩ cũng như bản thân em không thiên về trí nhớ mà là logic hơn.
+thay vì phải nhớ từng món đồ tên gì, em sẽ phân loại và nhớ theo nhóm.
+
+
+Q4 — Người bán hàng nào dễ chịu nhất? · [O]
+Em có sự ấn tượng với các bạn nhân viên ghi nhớ sở thích của khách hàng. Cụ thể là highland coffee, em thường xuyên lui tới 2 quan mà nhân viên trong đó nhớ em là ai, dùng món cà phê sữa ít sữa size nhỏ mỗi ngày.
+Bạn đầu tiên em ấn tượng là nhân viên ở highland công viên phần mềm quang trung quận 12, vì khi em còn làm ở Bestarion, sáng nào cũng sẽ ghé qua với 1 order cà phê sữa, đặc biệt ít sữa. Mỗi khi bạn thấy em đều sẽ mỉm cười và hỏi phê sữa ít sửa hả anh? Đôi khi còn nhắc các bạn nhân viên pha cho em 1 ly với thông tin như nào. Đến bây giờ, mặc dù vài tháng rồi nhưng khi quay lại bạn vẫn cười và hỏi y như các lần trước.
+Em còn ấn tượng ở chỗ, 1 hôm em đặt cà phê qua app, nhưng lại nhầm quán khác, đến nơi bạn không thấy nhưng pha cho em 1 ly và bảo em bao anh ly này. Cực kỳ ấn tượng với cách bạn xử lý tình huống mặc dù lỗi ở em.
+
+
+Q5 — Lần cuối bạn bỏ quên một món đồ là khi nào? Đồ gì? · [M, O] · Bắt buộc
+Em cũng thường hay quên, ngay chính ngày hôm qua khi đi làm, tối hôm đó em đã nhớ việc phải đem hộp singum theo để lên công ty ăn, mà sáng đi lại quên mang theo. Phải cho đến cuối ngày hôm qua khi 1 bạn đồng nghiệp tới lấy hủ singum còn sót lại trên bàn em (hủ đó đã hết) thì em mới nhận ra mình quên đem. (mặc dù trong ngày vẫn có dùng hủ còn lại nhưng vẫn không nhớ, có thể là em làm trong vô thức)
