@@ -1,0 +1,90 @@
+# Purpose: runbook-as-code - rollout-restart a deployment in a prod-* namespace of the k0s cluster (kubectl rollout restart only).
+# Controls: transient prod operations without standing human prod-write access (Git SSoT, section 3.3).
+#   Environment `production-ops` = required reviewer + prevent self-review. OIDC role pipeline-ops-prod
+#   (sub: repo:papaya/platform:environment:production-ops) is limited to this runbook family's actions.
+#   Persistent changes (scale/config/flags) are NOT runbooks: open a PR labelled `hotfix-ops`.
+name: ops-k8s-rollout-restart
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service"
+        required: true
+        type: choice
+        options: [claim-agent, document-extraction, fwa-detection]
+      target:
+        description: "Deployment name in namespace prod-<service> (must start with prod-)"
+        required: true
+        type: string
+      ticket:
+        description: "Ticket id (LIN-123 or SEC-123)"
+        required: true
+        type: string
+      reason:
+        description: "Why this operation is needed (free text, recorded in summary)"
+        required: true
+        type: string
+
+concurrency:
+  group: ops-k8s-rollout-restart-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Validate inputs
+        env:
+          TICKET: ${{ inputs.ticket }}
+          TARGET: ${{ inputs.target }}
+          REASON: ${{ inputs.reason }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          [[ "$TICKET" =~ ^(LIN|SEC)-[0-9]+$ ]] || { echo "::error::ticket must match ^(LIN|SEC)-[0-9]+$"; exit 1; }
+          [[ "$TARGET" == prod-* ]] || { echo "::error::target must start with prod-"; exit 1; }
+          [[ "$TARGET" == prod-${SERVICE}* ]] || { echo "::error::target must belong to selected service"; exit 1; }
+          [[ -n "$REASON" ]] || { echo "::error::reason required"; exit 1; }
+
+  run:
+    needs: validate
+    runs-on: [self-hosted, k0s-ops]
+    environment: production-ops   # approval gate: reviewer != actor
+    permissions:
+      contents: read
+    steps:
+      # The k0s API is private: this job runs on a self-hosted runner inside the prod VPC (label k0s-ops).
+      # KUBECONFIG_OPS is an environment secret of `production-ops` (only released after approval) for a
+      # ServiceAccount bound to a Role that allows ONLY get/patch on deployments in prod-* namespaces.
+      - name: Rollout restart
+        env:
+          TARGET: ${{ inputs.target }}
+          SERVICE: ${{ inputs.service }}
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_OPS }}
+        run: |
+          set -euo pipefail
+          umask 077; echo "$KUBECONFIG_DATA" > "$RUNNER_TEMP/kubeconfig"; export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+          kubectl -n "prod-${SERVICE}" rollout restart "deployment/${TARGET}"
+          kubectl -n "prod-${SERVICE}" rollout status "deployment/${TARGET}" --timeout=10m
+          rm -f "$KUBECONFIG"
+      - name: Job summary (audit evidence)
+        if: always()
+        env:
+          TICKET: ${{ inputs.ticket }}
+          REASON: ${{ inputs.reason }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          {
+            echo "## ops-k8s-rollout-restart"
+            echo "- target: \`${TARGET}\`"
+            echo "- requested by (actor): ${GITHUB_ACTOR}"
+            echo "- ticket: ${TICKET}"
+            echo "- reason: ${REASON}"
+            echo "- approver: recorded in this run's Environment 'production-ops' deployment review"
+            echo "- workflow version: \`${GITHUB_SHA}\`  run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } >> "$GITHUB_STEP_SUMMARY"
+

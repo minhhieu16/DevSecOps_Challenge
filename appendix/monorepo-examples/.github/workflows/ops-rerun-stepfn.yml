@@ -1,0 +1,89 @@
+# Purpose: runbook-as-code - re-run a prod Step Functions execution using the original input (states:StartExecution).
+# Controls: transient prod operations without standing human prod-write access (Git SSoT, section 3.3).
+#   Environment `production-ops` = required reviewer + prevent self-review. OIDC role pipeline-ops-prod
+#   (sub: repo:papaya/platform:environment:production-ops) is limited to this runbook family's actions.
+#   Persistent changes (scale/config/flags) are NOT runbooks: open a PR labelled `hotfix-ops`.
+name: ops-rerun-stepfn
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service"
+        required: true
+        type: choice
+        options: [claim-ingest, claim-adjudication, notification]
+      target:
+        description: "Failed execution ARN to re-run (state machine name must start with prod-)"
+        required: true
+        type: string
+      ticket:
+        description: "Ticket id (LIN-123 or SEC-123)"
+        required: true
+        type: string
+      reason:
+        description: "Why this operation is needed (free text, recorded in summary)"
+        required: true
+        type: string
+
+concurrency:
+  group: ops-rerun-stepfn-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Validate inputs
+        env:
+          TICKET: ${{ inputs.ticket }}
+          TARGET: ${{ inputs.target }}
+          REASON: ${{ inputs.reason }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          [[ "$TICKET" =~ ^(LIN|SEC)-[0-9]+$ ]] || { echo "::error::ticket must match ^(LIN|SEC)-[0-9]+$"; exit 1; }
+          [[ "$TARGET" =~ ^arn:aws:states:ap-southeast-1:111122223333:execution:prod-[A-Za-z0-9_-]+:[A-Za-z0-9_.-]+$ ]] || { echo "::error::target must be an execution ARN of a prod-* state machine"; exit 1; }
+          [[ "$TARGET" == *:execution:prod-${SERVICE}* ]] || { echo "::error::state machine must belong to selected service"; exit 1; }
+          [[ -n "$REASON" ]] || { echo "::error::reason required"; exit 1; }
+
+  run:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production-ops   # approval gate: reviewer != actor
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: aws-actions/configure-aws-credentials@0000000000000000000000000000000000000004 # v4 (placeholder SHA)
+        with:
+          role-to-assume: arn:aws:iam::111122223333:role/pipeline-ops-prod
+          aws-region: ap-southeast-1
+          role-session-name: ops-${{ github.actor }}-${{ inputs.ticket }}
+      - name: Start Step Functions execution with same input
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          SM_ARN=$(aws stepfunctions describe-execution --execution-arn "$TARGET" --query stateMachineArn --output text)
+          INPUT=$(aws stepfunctions describe-execution --execution-arn "$TARGET" --query input --output text)
+          aws stepfunctions start-execution --state-machine-arn "$SM_ARN" --input "$INPUT"
+      - name: Job summary (audit evidence)
+        if: always()
+        env:
+          TICKET: ${{ inputs.ticket }}
+          REASON: ${{ inputs.reason }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          {
+            echo "## ops-rerun-stepfn"
+            echo "- target: \`${TARGET}\`"
+            echo "- requested by (actor): ${GITHUB_ACTOR}"
+            echo "- ticket: ${TICKET}"
+            echo "- reason: ${REASON}"
+            echo "- approver: recorded in this run's Environment 'production-ops' deployment review"
+            echo "- workflow version: \`${GITHUB_SHA}\`  run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
