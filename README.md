@@ -182,6 +182,7 @@ These choices come from a review of five big-tech models (Google Zero-Touch Prod
 |---|---|
 | [research/](research/) | The analysis behind this framework: top 5 big-tech models, top 3 solutions with trade-offs, principal review, monitoring cost comparison |
 | [sessions/](sessions/) | Raw, unedited Claude Code session transcripts (main session plus every sub-agent) |
+| [logical-challenge/](logical-challenge/) | Logical challenge answers ([Markdown](logical-challenge/Logical_challenge.md) and [original text](logical-challenge/raw/Logical_challenge.txt)) |
 
 **Assumptions**
 - There was no access to Papaya systems. Names, volumes and costs are estimates (account `111122223333`, region `ap-southeast-1`).

@@ -1,0 +1,1 @@
+{"agentType":"general-purpose","isBuiltIn":true,"description":"Build IAM policies and detections","toolUseId":"toolu_01UmAyz6mZ7KMteeg3r5XvEW","spawnDepth":1,"requestShape":"background","requestNonInteractive":true,"model":"sonnet","pickedEffortModel":"claude-opus-5-5","finished":true}
