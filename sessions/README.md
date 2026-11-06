@@ -10,4 +10,6 @@ These are native Claude Code session files for this challenge. They are copied v
 | `81d85be5-5348-4f12-b37a-a4757714f1b3.jsonl` | Forked session (from the main session): formatting of the logical challenge answers |
 | `81d85be5-5348-4f12-b37a-a4757714f1b3/subagents/` | Sub-agent transcripts inherited by the fork |
 
-The files are not edited. The main session transcript was copied while the session was still active, so the last few turns (this sync itself) may be missing.
+Public links: main session https://github.com/minhhieu16/DevSecOps_Challenge/blob/main/sessions/50a70d1f-189e-47aa-85ec-2484b354247f.jsonl · forked session https://github.com/minhhieu16/DevSecOps_Challenge/blob/main/sessions/81d85be5-5348-4f12-b37a-a4757714f1b3.jsonl
+
+The files are not edited. The final refresh was copied at the end of the work. Only the closing turn that made this copy is missing.

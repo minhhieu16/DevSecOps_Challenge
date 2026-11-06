@@ -176,6 +176,17 @@ These choices come from a review of five big-tech models (Google Zero-Touch Prod
 - About 2–3 h/week to run, plus a 30–45 minute weekly review.
 - Infrastructure about **$1.7k–6.2k/year**.
 
+## Agent session (public links)
+
+The full, unedited Claude Code conversation for this challenge is public in this repository:
+
+| Session | Public link |
+|---|---|
+| Main session (orchestrator) | [50a70d1f-189e-47aa-85ec-2484b354247f.jsonl](https://github.com/minhhieu16/DevSecOps_Challenge/blob/main/sessions/50a70d1f-189e-47aa-85ec-2484b354247f.jsonl) · [raw](https://github.com/minhhieu16/DevSecOps_Challenge/raw/main/sessions/50a70d1f-189e-47aa-85ec-2484b354247f.jsonl) |
+| Sub-agents of the main session | [sessions/50a70d1f-189e-47aa-85ec-2484b354247f/subagents/](https://github.com/minhhieu16/DevSecOps_Challenge/tree/main/sessions/50a70d1f-189e-47aa-85ec-2484b354247f/subagents) |
+| Forked session (logical challenge formatting) | [81d85be5-5348-4f12-b37a-a4757714f1b3.jsonl](https://github.com/minhhieu16/DevSecOps_Challenge/blob/main/sessions/81d85be5-5348-4f12-b37a-a4757714f1b3.jsonl) · [raw](https://github.com/minhhieu16/DevSecOps_Challenge/raw/main/sessions/81d85be5-5348-4f12-b37a-a4757714f1b3.jsonl) |
+| All sessions | [sessions/](https://github.com/minhhieu16/DevSecOps_Challenge/tree/main/sessions) |
+
 ## 10. Repository
 
 | Path | Content |
