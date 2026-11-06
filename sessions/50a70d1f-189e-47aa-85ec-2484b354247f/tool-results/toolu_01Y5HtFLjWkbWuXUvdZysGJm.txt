@@ -1,0 +1,913 @@
+ce-authorization/latest/reference/list_ebs.html))
+  + Amazon EventBridge Scheduler (prefix: [`scheduler`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_scheduler.html))
+  + Amazon Data Firehose (prefix: [`firehose`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_firehose.html))
+  + Amazon GameLift (prefix: [`gamelift`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_gamelift.html))
+  + AWS HealthImaging (prefix: [`medical-imaging`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_medical-imaging.html))
+  + AWS HealthLake (prefix: [`healthlake`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_healthlake.html))
+  + AWS HealthOmics (prefix: [`omics`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_omics.html))
+  + AWS Identity and Access Management (except for the `iam:PassRole` action) (prefix: [`iam`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_iam.html))
+  + AWS IoT FleetWise (prefix: [`iotfleetwise`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_iotfleetwise.html))
+  + AWS IoT Wireless (prefix: [`iotwireless`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_iotwireless.html))
+  + AWS Key Management Service (prefix: [`kms`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_kms.html))
+  + AWS Lambda (prefix: [`lambda`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_lambda.html))
+  + AWS Payment Cryptography (prefix: [`payment-cryptography`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_payment-cryptography.html))
+  + Amazon Polly (prefix: [`polly`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_polly.html))
+  + AWS Private Certificate Authority (prefix: [`acm-pca`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_acm-pca.html))
+  + AWS Recycle Bin (prefix: [`rbin`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_rbin.html))
+  + Amazon Rekognition (prefix: [`rekognition`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_rekognition.html))
+  + Service Quotas (prefix: [`servicequotas`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_service-quotas.html))
+  + AWS Secrets Manager (prefix: [`secretsmanager`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_secretsmanager.html))
+  + AWS Security Token Service (prefix: [`sts`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_sts.html))
+  + Amazon Simple Storage Service (prefix: [`s3`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_s3.html))
+  + AWS Shield (prefix: [`shield`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_shield.html))
+  + AWS Storage Gateway (prefix: [`storagegateway`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_storagegateway.html))
+  + AWS Systems Manager Incident Manager Contacts (prefix: [`ssm-contacts`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_ssm-contacts.html))
+  + Amazon Textract (prefix: [`textract`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_textract.html))
+  + Amazon Transcribe (prefix: [`transcribe`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_transcribe.html))
+  + AWS Transfer Family (prefix: [`transfer`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_transfer.html))
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String) (list)
++ **Value type** – Multivalued
++ **Example values** – `o-a1b2c3d4e5/r-ab12/ou-ab12-11111111/ou-ab12-22222222/`
+
+Since `aws:VpceOrgPaths` is a multivalued condition key, you must use the `ForAnyValue` or `ForAllValues` set operators with [string condition operators](reference_policies_elements_condition_operators.md#Conditions_String) for this key. The following Amazon S3 bucket policy example allows access only when requests come through VPC endpoints owned by accounts in specific organizational units:
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+  "Version":"2012-10-17",		 	 	 
+  "Statement": [
+    {
+      "Sid": "AllowAccessFromSpecificOrgPaths",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::{{111122223333}}:role/RoleName"
+      },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::{{amzn-s3-demo-bucket1}}/*",
+      "Condition": {
+        "ForAnyValue:StringLike": {
+          "aws:VpceOrgPaths": [
+            "{{o-a1b2c3d4e5}}/{{r-ab12}}/{{ou-ab12-11111111}}/{{ou-ab12-22222222}}/*",
+            "{{o-a1b2c3d4e5}}/{{r-ab12}}/{{ou-ab12-11111111}}/{{ou-ab12-33333333}}/*"
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+------
+
+**Note**  
+This condition key is currently supported for a select set of AWS services. Using this key with unsupported services can lead to unintended authorization results. Always scope the condition key to supported services in your policies.
+
+Some AWS services access your resources from their networks when they act on your behalf. If you use such services, you will need to edit the above policy example to allow AWS services access your resources from outside your network. For more information on access patterns that need to be accounted for when enforcing access controls based on the request origin, see [Establish permissions guardrails using data perimeters](access_policies_data-perimeters.md).
+
+### aws:VpcSourceIp
+<a name="condition-keys-vpcsourceip"></a>
+
+Use this key to compare the IP address from which a request was made with the IP address that you specify in the policy. In a policy, the key matches only if the request originates from the specified IP address and it goes through a VPC endpoint.
++ **Availability** – This key is included in the request context only if the request is made using a VPC endpoint.
++ **Data type** – [IP address](reference_policies_elements_condition_operators.md#Conditions_IPAddress)
++ **Value type** – Single-valued
+
+For more information, see [Control access to VPC endpoints using endpoint policies](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-endpoints-access.html) in the *Amazon VPC User Guide*. Similarly to using [aws:SourceVpc](#condition-keys-sourcevpc), you must use [aws:ViaAWSService](#condition-keys-viaawsservice) or [aws:CalledVia](#condition-keys-calledvia) to allow requests made by AWS services using [forward access sessions (FAS)](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_forward_access_sessions.html). This is because the source IP of the initial request made using a VPC endpoint is not preserved in FAS requests.
+
+**Note**  
+`aws:VpcSourceIp` supports both IPv4 and IPv6 address or range of IP addresses. For a list of AWS services that support IPv6, see [AWS services that support IPv6](https://docs.aws.amazon.com/vpc/latest/userguide/aws-ipv6-support.html) in the *Amazon VPC User Guide*.  
+Always use the `aws:VpcSourceIp` condition key with the `aws:SourceVpc`, `aws:SourceVpce`, or `aws:SourceVpcArn` condition keys. If you don't, a policy might permit API calls from an unexpected VPC that uses the same or overlapping IP CIDR. This can happen because IP CIDRs from two unrelated VPCs can be the same or overlap.
+
+**Note**  
+When AWS services make calls to other AWS services on your behalf (service-to-service calls), certain network-specific authorization context is redacted. If your policy uses this condition key with `Deny` statements, AWS service principals might be unintentionally blocked. To allow AWS services to work properly while maintaining your security requirements, exclude service principals from your `Deny` statements by adding the `aws:PrincipalIsAWSService` condition key with a value of `false`.
+
+## Properties of the resource
+<a name="condition-keys-resource-properties"></a>
+
+Use the following condition keys to compare details about the resource that is the target of the request with the resource properties that you specify in the policy.
+
+### aws:ResourceAccount
+<a name="condition-keys-resourceaccount"></a>
+
+Use this key to compare the requested resource owner's [AWS account ID](https://docs.aws.amazon.com/general/latest/gr/acct-identifiers.html) with the resource account in the policy. You can then allow or deny access to that resource based on the account that owns the resource.
++ **Availability** – This key is always included in the request context for most service actions. The following actions don't support this key:
+  + AWS Audit Manager
+    + `auditmanager:UpdateAssessmentFrameworkShare`
+  + Amazon Detective
+    + `detective:AcceptInvitation`
+  + AWS Directory Service
+    + `ds:AcceptSharedDirectory`
+  + Amazon Elastic Block Store – All actions
+  + Amazon EC2
+    + `ec2:AcceptTransitGatewayPeeringAttachment`
+    + `ec2:AcceptVpcEndpointConnections`
+    + `ec2:AcceptVpcPeeringConnection`
+    + `ec2:CreateTransitGatewayPeeringAttachment`
+    + `ec2:CreateVpcEndpoint`
+    + `ec2:CreateVpcPeeringConnection`
+  + Amazon EventBridge
+    + `events:PutEvents` – EventBridge `PutEvents` calls on an event bus in another account, if that event bus was configured as a cross-account EventBridge target before March 2, 2023. For more information, see [Grant permissions to allow events from other AWS accounts](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cross-account.html#eb-receiving-events-from-another-account) in the *Amazon EventBridge User Guide*.
+  + Amazon GuardDuty
+    + `guardduty:AcceptAdministratorInvitation`
+  + Amazon Macie
+    + `macie2:AcceptInvitation`
+  + Amazon OpenSearch Service
+    + `es:AcceptInboundConnection`
+  + Amazon Route 53
+    + `route53:AssociateVpcWithHostedZone`
+    + `route53:CreateVPCAssociationAuthorization`
+  + AWS Security Hub CSPM
+    + `securityhub:AcceptAdministratorInvitation`
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+**Note**  
+For additional considerations for the above unsupported actions, see the [Data Perimeter Policy Examples](https://github.com/aws-samples/data-perimeter-policy-examples) repository.
+
+This key is equal to the AWS account ID for the account with the resources evaluated in the request.
+
+For most resources in your account, the [ARN](reference_policies_elements_condition_operators.md#Conditions_ARN) contains the owner account ID for that resource. For certain resources, such as Amazon S3 buckets, the resource ARN does not include the account ID. The following two examples show the difference between a resource with an account ID in the ARN, and an Amazon S3 ARN without an account ID:
++ `arn:aws:iam::123456789012:role/AWSExampleRole` – IAM role created and owned within the account 123456789012. 
++ `arn:aws:s3:::amzn-s3-demo-bucket2` – Amazon S3 bucket created and owned within the account `111122223333`, not displayed in the ARN.
+
+Use the AWS console, or API, or CLI, to find all of your resources and corresponding ARNs.
+
+You write a policy that denies permissions to resources based on the resource owner's account ID. For example, the following identity-based policy denies access to the *specified resource* if the resource does not belong to the *specified account*.
+
+To use this policy, replace the *italicized placeholder text* with your account information. 
+
+**Important**  
+This policy does not allow any actions. Instead, it uses the `Deny` effect which explicitly denies access to all of the resources listed in the statement that do not belong to the listed account. Use this policy in combination with other policies that allow access to specific resources.
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+  "Version":"2012-10-17",		 	 	 
+  "Statement": [
+    {
+      "Sid": "DenyInteractionWithResourcesNotInSpecificAccount",
+      "Action": "{{service}}:*",
+      "Effect": "Deny",
+      "Resource": [
+        "arn:aws:{{service}}:{{us-east-1}}:{{111122223333}}:{{*}}"
+      ],
+      "Condition": {
+        "StringNotEquals": {
+          "aws:ResourceAccount": [
+            "{{111122223333}}"
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+------
+
+This policy denies access to all resources for a specific AWS service unless the specified AWS account owns the resource. 
+
+**Note**  
+Some AWS services require access to AWS owned resources that are hosted in another AWS account. Using `aws:ResourceAccount` in your identity-based policies might impact your identity's ability to access these resources.
+
+Certain AWS services, such as AWS Data Exchange, rely on access to resources outside of your AWS accounts for normal operations. If you use the element `aws:ResourceAccount` in your policies, include additional statements to create exemptions for those services. The example policy [AWS: Deny access to Amazon S3 resources outside your account except AWS Data Exchange](reference_policies_examples_resource_account_data_exch.md) demonstrates how to deny access based on the resource account while defining exceptions for service-owned resources.
+
+Use this policy example as a template for creating your own custom policies. Refer to your service [documentation](https://docs.aws.amazon.com/index.html) for more information.
+
+### aws:ResourceOrgPaths
+<a name="condition-keys-resourceorgpaths"></a>
+
+Use this key to compare the AWS Organizations path for the accessed resource to the path in the policy. In a policy, this condition key ensures that the resource belongs to an account member within the specified organization root or organizational units (OUs) in AWS Organizations. An AWS Organizations path is a text representation of the structure of an Organizations entity. For more information about using and understanding paths, see [Understand the AWS Organizations entity path](access_policies_last-accessed-view-data-orgs.md#access_policies_last-accessed-viewing-orgs-entity-path) 
++ **Availability** – This key is included in the request context only if the account that owns the resource is a member of an organization. This global condition key does not support the following actions:
+  + AWS Audit Manager
+    + `auditmanager:UpdateAssessmentFrameworkShare`
+  + Amazon Detective
+    + `detective:AcceptInvitation`
+  + AWS Directory Service
+    + `ds:AcceptSharedDirectory`
+  + Amazon Elastic Block Store – All actions
+  + Amazon EC2
+    + `ec2:AcceptTransitGatewayPeeringAttachment`
+    + `ec2:AcceptVpcEndpointConnections`
+    + `ec2:AcceptVpcPeeringConnection`
+    + `ec2:CreateTransitGatewayPeeringAttachment`
+    + `ec2:CreateVpcEndpoint`
+    + `ec2:CreateVpcPeeringConnection`
+  + Amazon EventBridge
+    + `events:PutEvents` – EventBridge `PutEvents` calls on an event bus in another account, if that event bus was configured as a cross-account EventBridge target before March 2, 2023. For more information, see [Grant permissions to allow events from other AWS accounts](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cross-account.html#eb-receiving-events-from-another-account) in the *Amazon EventBridge User Guide*.
+  + Amazon GuardDuty
+    + `guardduty:AcceptAdministratorInvitation`
+  + Amazon Macie
+    + `macie2:AcceptInvitation`
+  + Amazon OpenSearch Service
+    + `es:AcceptInboundConnection`
+  + Amazon Route 53
+    + `route53:AssociateVpcWithHostedZone`
+    + `route53:CreateVPCAssociationAuthorization`
+  + AWS Security Hub CSPM
+    + `securityhub:AcceptAdministratorInvitation`
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String) (list)
++ **Value type** – Multivalued
+
+**Note**  
+For additional considerations for the above unsupported actions, see the [Data Perimeter Policy Examples](https://github.com/aws-samples/data-perimeter-policy-examples) repository.
+
+`aws:ResourceOrgPaths` is a multivalued condition key. Multivalued keys can have multiple values in the request context. You must use the `ForAnyValue` or `ForAllValues` set operators with [string condition operators](reference_policies_elements_condition_operators.md#Conditions_String) for this key. For more information about multivalued condition keys, see [Set operators for multivalued context keys](reference_policies_condition-single-vs-multi-valued-context-keys.md#reference_policies_condition-multi-valued-context-keys).
+
+For example, the following condition returns `True` for resources that belong to the organization `o-a1b2c3d4e5`. When you include a wildcard, you must use the [StringLike](reference_policies_elements_condition_operators.md) condition operator.
+
+```
+"Condition": { 
+      "ForAnyValue:StringLike": {
+             "aws:ResourceOrgPaths":["o-a1b2c3d4e5/*"]
+   }
+}
+```
+
+The following condition returns `True` for resources with the OU ID `ou-ab12-11111111`. It will match resources owned by accounts attached to the OU ou-ab12-11111111 or any of the child OUs.
+
+```
+"Condition": { "ForAnyValue:StringLike" : {
+     "aws:ResourceOrgPaths":["o-a1b2c3d4e5/r-ab12/ou-ab12-11111111/*"]
+}}
+```
+
+The following condition returns `True` for resources owned by accounts attached directly to the OU ID `ou-ab12-22222222`, but not the child OUs. The following example uses the [StringEquals](reference_policies_elements_condition_operators.md) condition operator to specify the exact match requirement for the OU ID and not a wildcard match.
+
+```
+"Condition": { "ForAnyValue:StringEquals" : {
+     "aws:ResourceOrgPaths":["o-a1b2c3d4e5/r-ab12/ou-ab12-11111111/ou-ab12-22222222/"]
+}}
+```
+
+**Note**  
+Some AWS services require access to AWS owned resources that are hosted in another AWS account. Using `aws:ResourceOrgPaths` in your identity-based policies might impact your identity's ability to access these resources.
+
+Certain AWS services, such as AWS Data Exchange, rely on access to resources outside of your AWS accounts for normal operations. If you use the `aws:ResourceOrgPaths` key in your policies, include additional statements to create exemptions for those services. The example policy [AWS: Deny access to Amazon S3 resources outside your account except AWS Data Exchange](reference_policies_examples_resource_account_data_exch.md) demonstrates how to deny access based on the resource account while defining exceptions for service-owned resources. You can create a similar policy to restrict access to resources within an organizational unit (OU) using the `aws:ResourceOrgPaths` key, while accounting for service-owned resources.
+
+Use this policy example as a template for creating your own custom policies. Refer to your service [documentation](https://docs.aws.amazon.com/index.html) for more information.
+
+### aws:ResourceOrgID
+<a name="condition-keys-resourceorgid"></a>
+
+Use this key to compare the identifier of the organization in AWS Organizations to which the requested resource belongs with the identifier specified in the policy.
++ **Availability** – This key is included in the request context only if the account that owns the resource is a member of an organization. This global condition key does not support the following actions:
+  + AWS Audit Manager
+    + `auditmanager:UpdateAssessmentFrameworkShare`
+  + Amazon Detective
+    + `detective:AcceptInvitation`
+  + AWS Directory Service
+    + `ds:AcceptSharedDirectory`
+  + Amazon Elastic Block Store – All actions
+  + Amazon EC2
+    + `ec2:AcceptTransitGatewayPeeringAttachment`
+    + `ec2:AcceptVpcEndpointConnections`
+    + `ec2:AcceptVpcPeeringConnection`
+    + `ec2:CreateTransitGatewayPeeringAttachment`
+    + `ec2:CreateVpcEndpoint`
+    + `ec2:CreateVpcPeeringConnection`
+  + Amazon EventBridge
+    + `events:PutEvents` – EventBridge `PutEvents` calls on an event bus in another account, if that event bus was configured as a cross-account EventBridge target before March 2, 2023. For more information, see [Grant permissions to allow events from other AWS accounts](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cross-account.html#eb-receiving-events-from-another-account) in the *Amazon EventBridge User Guide*.
+  + Amazon GuardDuty
+    + `guardduty:AcceptAdministratorInvitation`
+  + Amazon Macie
+    + `macie2:AcceptInvitation`
+  + Amazon OpenSearch Service
+    + `es:AcceptInboundConnection`
+  + Amazon Route 53
+    + `route53:AssociateVpcWithHostedZone`
+    + `route53:CreateVPCAssociationAuthorization`
+  + AWS Security Hub CSPM
+    + `securityhub:AcceptAdministratorInvitation`
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+**Note**  
+For additional considerations for the above unsupported actions, see the [Data Perimeter Policy Examples](https://github.com/aws-samples/data-perimeter-policy-examples) repository.
+
+This global key returns the resource organization ID for a given request. It allows you to create rules that apply to all resources in an organization that are specified in the `Resource` element of an [identity-based policy](access_policies_identity-vs-resource.md). You can specify the [organization ID](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_details.html) in the condition element. When you add and remove accounts, policies that include the `aws:ResourceOrgID` key automatically include the correct accounts and you don't have to manually update it.
+
+For example, the following policy prevents the principal from adding objects to the `policy-genius-dev` resource unless the Amazon S3 resource belongs to the same organization as the principal making the request.
+
+**Important**  
+This policy does not allow any actions. Instead, it uses the `Deny` effect which explicitly denies access to all of the resources listed in the statement that do not belong to the listed account. Use this policy in combination with other policies that allow access to specific resources.
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+    "Version":"2012-10-17",		 	 	 
+    "Statement": {
+        "Sid": "DenyPutObjectToS3ResourcesOutsideMyOrganization",
+        "Effect": "Deny",
+        "Action": "s3:PutObject",
+        "Resource": "arn:aws:s3:::policy-genius-dev/*",
+        "Condition": {
+            "StringNotEquals": {
+                "aws:ResourceOrgID": "${aws:PrincipalOrgID}"
+            }
+        }
+    }
+}
+```
+
+------
+
+**Note**  
+Some AWS services require access to AWS owned resources that are hosted in another AWS account. Using `aws:ResourceOrgID` in your identity-based policies might impact your identity's ability to access these resources.
+
+Certain AWS services, such as AWS Data Exchange, rely on access to resources outside of your AWS accounts for normal operations. If you use the `aws:ResourceOrgID` key in your policies, include additional statements to create exemptions for those services. The example policy [AWS: Deny access to Amazon S3 resources outside your account except AWS Data Exchange](reference_policies_examples_resource_account_data_exch.md) demonstrates how to deny access based on the resource account while defining exceptions for service-owned resources. You can create a similar policy to restrict access to resources within your organization using the `aws:ResourceOrgID` key, while accounting for service-owned resources.
+
+Use this policy example as a template for creating your own custom policies. Refer to your service [documentation](https://docs.aws.amazon.com/index.html) for more information.
+
+In the following video, learn more about how you might use the `aws:ResourceOrgID` condition key in a policy.
+
+[![AWS Videos](https://img.youtube.com/vi/cWVW0xAiWwc/0.jpg)](https://www.youtube.com/watch?v=cWVW0xAiWwc)
+
+
+### aws:ResourceTag/*tag-key*
+<a name="condition-keys-resourcetag"></a>
+
+Use this key to compare the tag key-value pair that you specify in the policy with the key-value pair attached to the resource. For example, you could require that access to a resource is allowed only if the resource has the attached tag key `"Dept"` with the value `"Marketing"`. For more information, see [Controlling access to AWS resources](access_tags.md#access_tags_control-resources).
++ **Availability** – This key is included in the request context when the requested resource already has attached tags or in requests that create a resource with an attached tag. This key is returned only for resources that [support authorization based on tags](reference_aws-services-that-work-with-iam.md). There is one context key for each tag key-value pair.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+This context key is formatted `"aws:ResourceTag/{{tag-key}}":"{{tag-value}}"` where {{tag-key}} and {{tag-value}} are a tag key and value pair. Tag keys are not case-sensitive. This means that if you specify `"aws:ResourceTag/TagKey1": "Value1"` in the condition element of your policy, then the condition matches a resource tag key named either `TagKey1` or `tagkey1`, but not both. Values in these tag key/value pairs are case-sensitive. This means that if you specify `"aws:ResourceTag/TagKey1": "Production"` in the condition element of your policy, then the condition matches a resource tag value named `Production` but it would not match `production` or `PRODUCTION`.
+
+For examples of using the `aws:ResourceTag` key to control access to IAM resources, see [Controlling access to AWS resources](access_tags.md#access_tags_control-resources).
+
+For examples of using the `aws:ResourceTag` key to control access to other AWS resources, see [Controlling access to AWS resources using tags](access_tags.md).
+
+For a tutorial on using the `aws:ResourceTag` condition key for attribute based access control (ABAC), see [IAM tutorial: Define permissions to access AWS resources based on tags](tutorial_attribute-based-access-control.md).
+
+## Properties of the request
+<a name="condition-keys-request-properties"></a>
+
+Use the following condition keys to compare details about the request itself and the contents of the request with the request properties that you specify in the policy. 
+
+### aws:CalledVia
+<a name="condition-keys-calledvia"></a>
+
+Use this key to compare the services in the policy with the services that made requests on behalf of the IAM principal (user or role). When a principal makes a request to an AWS service, that service might use the principal's credentials to make subsequent requests to other services. When the request is made using forward access sessions (FAS), this key is set with the value of the service principal. The `aws:CalledVia` key contains an ordered list of each service in the chain that made requests on the principal's behalf.
+
+For more information, see [Forward access sessions](access_forward_access_sessions.md).
++ **Availability** – This key is present in the request when a service that supports `aws:CalledVia` uses the credentials of an IAM principal to make a request to another service. This key is not present if the service uses a [service role or service-linked role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html#id_roles_terms-and-concepts) to make a call on the principal's behalf. This key is also not present when the principal makes the call directly.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String) (list)
++ **Value type** – Multivalued
+
+To use the `aws:CalledVia` condition key in a policy, you must provide the service principals to allow or deny AWS service requests. For example, you can use AWS CloudFormation to read and write from an Amazon DynamoDB table. DynamoDB then uses encryption supplied by AWS Key Management Service (AWS KMS).
+
+To allow or deny access when *any* service makes a request using the principal's credentials, use the `aws:ViaAWSService` condition key. That condition key supports AWS services.
+
+The `aws:CalledVia` key is a [multivalued key](reference_policies_condition-single-vs-multi-valued-context-keys.md). However, you can't enforce order using this key in a condition. Using the example above, **User 1** makes a request to CloudFormation, which calls DynamoDB, which calls AWS KMS. These are three separate requests. The final call to AWS KMS is performed by User 1 through CloudFormation and then DynamoDB. 
+
+![Example using aws:CalledVia.](https://docs.aws.amazon.com/IAM/latest/UserGuide/images/condition-key-calledvia-example-diagram.png)
+
+
+In this case, the `aws:CalledVia` key in the request context includes `cloudformation.amazonaws.com` and `dynamodb.amazonaws.com`, in that order. If you care only that the call was made through DynamoDB somewhere in the chain of requests, you can use this condition key in your policy. 
+
+For example, the following policy allows managing the AWS KMS key named `my-example-key`, but only if DynamoDB is one of the requesting services. The `ForAnyValue:StringEquals` condition operator ensures that DynamoDB is one of the calling services. If the principal makes the call to AWS KMS directly, the condition returns `false` and the request is not allowed by this policy.
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+    "Version":"2012-10-17",		 	 	 
+    "Statement": [
+        {
+            "Sid": "KmsActionsIfCalledViaDynamodb",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey",
+                "kms:DescribeKey"
+            ],
+            "Resource": "arn:aws:kms:{{us-east-1}}:{{111122223333}}:key/{{my-example-key}}",
+            "Condition": {
+                "ForAnyValue:StringEquals": {
+                    "aws:CalledVia": [
+                        "dynamodb.amazonaws.com"
+                    ]
+                }
+            }
+        }
+    ]
+}
+```
+
+------
+
+If you want to enforce which service makes the first or last call in the chain, you can use the `aws:CalledViaFirst` and `aws:CalledViaLast` keys. For example, the following policy allows managing the key named `my-example-key` in AWS KMS. These AWS KMS operations are allowed only if multiple requests were included in the chain. The first request must be made through CloudFormation and the last through DynamoDB. If other services make requests in the middle of the chain, the operation is still allowed.
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+    "Version":"2012-10-17",		 	 	 
+    "Statement": [
+        {
+            "Sid": "KmsActionsIfCalledViaChain",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey",
+                "kms:DescribeKey"
+            ],
+            "Resource": "arn:aws:kms:{{us-east-1}}:{{111122223333}}:key/{{my-example-key}}",
+            "Condition": {
+                "StringEquals": {
+                    "aws:CalledViaFirst": "cloudformation.amazonaws.com",
+                    "aws:CalledViaLast": "dynamodb.amazonaws.com"
+                }
+            }
+        }
+    ]
+}
+```
+
+------
+
+The `aws:CalledViaFirst` and `aws:CalledViaLast` keys are present in the request when a service uses an IAM principal's credentials to call another service. They indicate the first and last services that made calls in the chain of requests. For example, assume that CloudFormation calls another service named `X Service`, which calls DynamoDB, which then calls AWS KMS. The final call to AWS KMS is performed by `User 1` through CloudFormation, then `X Service`, and then DynamoDB. It was first called through CloudFormation and last called through DynamoDB. 
+
+![Example using aws:CalledViaFirst and aws:CalledViaLast.](https://docs.aws.amazon.com/IAM/latest/UserGuide/images/condition-key-calledviafirstlast-example-diagram.png)
+
+
+### aws:CalledViaFirst
+<a name="condition-keys-calledviafirst"></a>
+
+Use this key to compare the services in the policy with the ***first service*** that made a request on behalf of the IAM principal (user or role). For more information, see `aws:CalledVia`.
++ **Availability** – This key is present in the request when a service uses the credentials of an IAM principal to make at least one other request to a different service. This key is not present if the service uses a [service role or service-linked role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html#id_roles_terms-and-concepts) to make a call on the principal's behalf. This key is also not present when the principal makes the call directly.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+### aws:CalledViaLast
+<a name="condition-keys-calledvialast"></a>
+
+Use this key to compare the services in the policy with the *last service* that made a request on behalf of the IAM principal (user or role). For more information, see `aws:CalledVia`.
++ **Availability** – This key is present in the request when a service uses the credentials of an IAM principal to make at least one other request to a different service. This key is not present if the service uses a [service role or service-linked role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html#id_roles_terms-and-concepts) to make a call on the principal's behalf. This key is also not present when the principal makes the call directly.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+### aws:ViaAWSService
+<a name="condition-keys-viaawsservice"></a>
+
+Use this key to check whether an AWS service makes a request to another service on your behalf using [forward access sessions (FAS)](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_forward_access_sessions.html).
+
+The request context key returns `true` when a service uses forward access sessions to make a request on behalf of the original IAM principal. The request context key also returns `false` when the principal makes the call directly.
++ **Availability** – This key is always included in the request context.
++ **Data type** – [Boolean](reference_policies_elements_condition_operators.md#Conditions_Boolean)
++ **Value type** – Single-valued
+
+### aws:ViaCustomerDomain
+<a name="condition-keys-viacustomerdomain"></a>
+
+Use this key to check whether a principal made a request by using credentials obtained from Temporary Access Delegation (TAD). When a partner or vendor obtains temporary credentials through a TAD token exchange, we set this key to the account identifier of the requesting partner.
+
+Use this condition key in AWS Identity and Access Management (IAM) policies to scope access controls specifically to sessions that temporary access delegation established, without affecting your own sessions. For example, you can use this key to revoke only delegation-based sessions while preserving direct console access.
++ **Availability** – This key is present in the request context when a principal uses credentials obtained through a TAD token exchange.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+The following example shows a deny policy for sessions obtained through temporary access delegation from a specific partner account. The policy applies only to sessions issued before a specified time. This example uses a wildcard (`*`) for `Action` and `Resource` in the `Deny` statement, which is the standard pattern for revoking all access from a specific session. To revoke only specific actions, replace the wildcard with the appropriate action list.
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+                "DateLessThan": {
+                    "aws:TokenIssueTime": "2026-07-30T01:00:37.819Z"
+                },
+                "StringEquals": {
+                    "aws:ViaCustomerDomain": "123456789012"
+                }
+            }
+        }
+    ]
+}
+```
+
+### aws:CalledViaAWSMCP
+<a name="condition-keys-calledviaawasmcp"></a>
+
+Use this key to compare the services in the policy with the AWS MCP services that made requests on behalf of the IAM principal (user or role). When a principal makes a request to an AWS MCP service, that service uses the principal's credentials to make subsequent requests to other services. When the request is made using an AWS MCP service, this key is set with the value of the service principal. The `aws:CalledViaAWSMCP` key contains the service principal name of the MCP service that made requests on the principal's behalf.
++ **Availability** – This key is present in the request when an AWS MCP service uses the credentials of an IAM principal to make a request to an AWS service. This key is also not present when the principal makes the call directly.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+You can use this condition key to allow or deny access based on which specific MCP server initiated the request. For example, the following policy denies sensitive delete operations when they are initiated through a specific MCP server:
+
+```
+{
+    "Version": "2012-10-17",		 	 	 
+    "Statement": [
+        {
+            "Sid": "DenySensitiveActionsViaSpecificMCP",
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteBucket",
+                "s3:DeleteObject",
+                "dynamodb:DeleteTable"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:CalledViaAWSMCP": "aws-mcp.amazonaws.com"
+                }
+            }
+        }
+    ]
+}
+```
+
+### aws:ViaAWSMCPService
+<a name="condition-keys-viaawsmcpservice"></a>
+
+Use this key to check whether an AWS MCP service makes a request to another AWS service on your behalf using forward access sessions (FAS). The request context key returns `true` when an AWS MCP service forwards a request to an AWS service on behalf of the original IAM principal. The request context key also returns `false` when the principal makes the call directly.
++ **Availability** – This key is included in the request context when an AWS MCP server makes a request to a downstream AWS service on behalf of an IAM principal.
++ **Data type** – [Boolean](reference_policies_elements_condition_operators.md#Conditions_Boolean)
++ **Value type** – Single-valued
+
+You can use this key to restrict specific actions when they come through MCP servers. For example, the following policy denies sensitive delete operations when initiated through any AWS MCP server:
+
+```
+{
+    "Version": "2012-10-17",		 	 	 
+    "Statement": [
+        {
+            "Sid": "DenySensitiveActionsViaMCP",
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteBucket",
+                "s3:DeleteObject",
+                "dynamodb:DeleteTable"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Bool": {
+                    "aws:ViaAWSMCPService": "true"
+                }
+            }
+        }
+    ]
+}
+```
+
+### aws:CurrentTime
+<a name="condition-keys-currenttime"></a>
+
+Use this key to compare the date and time of the request with the date and time that you specify in the policy. To view an example policy that uses this condition key, see [AWS: Allows access based on date and time](reference_policies_examples_aws-dates.md).
++ **Availability** – This key is always included in the request context.
++ **Data type** – [Date](reference_policies_elements_condition_operators.md#Conditions_Date)
++ **Value type** – Single-valued
+
+### aws:EpochTime
+<a name="condition-keys-epochtime"></a>
+
+Use this key to compare the date and time of the request in epoch or Unix time with the value that you specify in the policy. This key also accepts the number of seconds since January 1, 1970. 
++ **Availability** – This key is always included in the request context.
++ **Data type** – [Date](reference_policies_elements_condition_operators.md#Conditions_Date), [Numeric](reference_policies_elements_condition_operators.md#Conditions_Numeric)
++ **Value type** – Single-valued
+
+### aws:referer
+<a name="condition-keys-referer"></a>
+
+Use this key to compare who referred the request in the client browser with the referer that you specify in the policy. The `aws:referer` request context value is provided by the caller in an HTTP header. The `Referer` header is included in a web browser request when you select a link on a web page. The `Referer` header contains the URL of the web page where the link was selected.
++ **Availability** – This key is included in the request context only if the request to the AWS resource was invoked by linking from a web page URL in the browser. This key is not included for programmatic requests because it doesn't use a browser link to access the AWS resource.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+For example, you can access an Amazon S3 object directly using a URL or using direct API invocation. For more information, see [Amazon S3 API operations directly using a web browser](https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html#example-bucket-policies-use-case-4). When you access an Amazon S3 object from a URL that exists in a webpage, the URL of the source web page is in used in `aws:referer`. When you access an Amazon S3 object by typing the URL into your browser, `aws:referer` is not present. When you invoke the API directly, `aws:referer` is also not present. You can use the `aws:referer` condition key in a policy to allow requests made from a specific referer, such as a link on a web page in your company's domain. 
+
+**Warning**  
+This key should be used carefully. It is dangerous to include a publicly known referer header value. Unauthorized parties can use modified or custom browsers to provide any `aws:referer` value that they choose. As a result, `aws:referer` should not be used to prevent unauthorized parties from making direct AWS requests. It is offered only to allow customers to protect their digital content, such as content stored in Amazon S3, from being referenced on unauthorized third-party sites.
+
+### aws:RequestedRegion
+<a name="condition-keys-requestedregion"></a>
+
+Use this key to compare the AWS Region that was called in the request with the Region that you specify in the policy. You can use this global condition key to control which Regions can be requested. To view the AWS Regions for each service, see [Service endpoints and quotas](https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html) in the *Amazon Web Services General Reference*.
++ **Availability** – This key is always included in the request context.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+Some global services, such as IAM, have a single endpoint. Because this endpoint is physically located in the US East (N. Virginia) Region, IAM calls are always made to the us-east-1 Region. For example, if you create a policy that denies access to all services if the requested Region is not us-west-2, then IAM calls always fail. To view an example of how to work around this, see [NotAction with Deny](reference_policies_elements_notaction.md). 
+
+**Note**  
+The `aws:RequestedRegion` condition key allows you to control which endpoint of a service is invoked but does not control the impact of the operation. Some services have cross-Region impacts.  
+For example, Amazon S3 has API operations that extend across regions.  
+You can invoke `s3:PutBucketReplication` in one Region (which is affected by the `aws:RequestedRegion` condition key), but other Regions are affected based on the replications configuration settings.
+You can invoke `s3:CreateBucket` to create a bucket in another region, and use the `s3:LocationConstraint` condition key to control the applicable regions.
+
+You can use this context key to limit access to AWS services within a given set of Regions. For example, the following policy allows a user to view all of the Amazon EC2 instances in the AWS Management Console. However it only allows them to make changes to instances in Ireland (eu-west-1), London (eu-west-2), or Paris (eu-west-3).
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+    "Version":"2012-10-17",		 	 	 
+    "Statement": [
+        {
+            "Sid": "InstanceConsoleReadOnly",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:Describe*",
+                "ec2:Export*",
+                "ec2:Get*",
+                "ec2:Search*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "InstanceWriteRegionRestricted",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:Associate*",
+                "ec2:Import*",
+                "ec2:Modify*",
+                "ec2:Monitor*",
+                "ec2:Reset*",
+                "ec2:Run*",
+                "ec2:Start*",
+                "ec2:Stop*",
+                "ec2:Terminate*"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:RequestedRegion": [
+                        "eu-west-1",
+                        "eu-west-2",
+                        "eu-west-3"
+                    ]
+                }
+            }
+        }
+    ]
+}
+```
+
+------
+
+### aws:RequestTag/*tag-key*
+<a name="condition-keys-requesttag"></a>
+
+Use this key to compare the tag key-value pair that was passed in the request with the tag pair that you specify in the policy. For example, you could check whether the request includes the tag key `"Dept"` and that it has the value `"Accounting"`. For more information, see [Controlling access during AWS requests](access_tags.md#access_tags_control-requests).
++ **Availability** – This key is included in the request context when tag key-value pairs are passed in the request. When multiple tags are passed in the request, there is one context key for each tag key-value pair.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+This context key is formatted `"aws:RequestTag/{{tag-key}}":"{{tag-value}}"` where {{tag-key}} and {{tag-value}} are a tag key and value pair. Tag keys are not case-sensitive. This means that if you specify `"aws:RequestTag/TagKey1": "Value1"` in the condition element of your policy, then the condition matches a request tag key named either `TagKey1` or `tagkey1`, but not both. Values in these tag key/value pairs are case-sensitive. This means that if you specify `"aws:RequestTag/TagKey1": "Production"` in the condition element of your policy, then the condition matches a request tag value named `Production` but it would not match `production` or `PRODUCTION`.
+
+This example shows that while the key is single-valued, you can still use multiple key-value pairs in a request if the keys are different.
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+  "Version":"2012-10-17",		 	 	 
+  "Statement": {
+    "Effect": "Allow",
+    "Action": "ec2:CreateTags",
+    "Resource": "arn:aws:ec2::{{111122223333}}:instance/*",
+    "Condition": {
+      "StringEquals": {
+        "aws:RequestTag/environment": [
+          "preprod",
+          "production"
+        ],
+        "aws:RequestTag/team": [
+          "engineering"
+        ]
+      }
+    }
+  }
+}
+```
+
+------
+
+### aws:TagKeys
+<a name="condition-keys-tagkeys"></a>
+
+Use this key to compare the tag keys in a request with the keys that you specify in the policy. We recommend that when you use policies to control access using tags, use the `aws:TagKeys` condition key to define what tag keys are allowed. For example policies and more information, see [Controlling access based on tag keys](access_tags.md#access_tags_control-tag-keys).
++ **Availability** – This key is included in the request context if the operation supports passing tags in the request.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String) (list)
++ **Value type** – Multivalued
+
+This context key is formatted `"aws:TagKeys":"{{tag-key}}"` where {{tag-key}} is a list of tag keys without values (for example, `["Dept","Cost-Center"]`).
+
+Because you can include multiple tag key-value pairs in a request, the request content could be a [multivalued](reference_policies_condition-single-vs-multi-valued-context-keys.md) request. In this case, you must use the `ForAllValues` or `ForAnyValue` set operators. For more information, see [Set operators for multivalued context keys](reference_policies_condition-single-vs-multi-valued-context-keys.md#reference_policies_condition-multi-valued-context-keys).
+
+Some services support tagging with resource operations, such as creating, modifying, or deleting a resource. To allow tagging and operations as a single call, you must create a policy that includes both the tagging action and the resource-modifying action. You can then use the `aws:TagKeys` condition key to enforce using specific tag keys in the request. For example, to limit tags when someone creates an Amazon EC2 snapshot, you must include the `ec2:CreateSnapshot` creation action ***and*** the `ec2:CreateTags` tagging action in the policy. To view a policy for this scenario that uses `aws:TagKeys`, see [Creating a Snapshot with Tags](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ExamplePolicies_EC2.html#iam-creating-snapshot-with-tags) in the *Amazon EC2 User Guide*. 
+
+### aws:SecureTransport
+<a name="condition-keys-securetransport"></a>
+
+Use this key to check whether the request was sent using TLS. The request context returns `true` or `false`. In a policy, you can allow specific actions only if the request is sent using TLS.
++ **Availability** – This key is always included in the request context.
++ **Data type** – [Boolean](reference_policies_elements_condition_operators.md#Conditions_Boolean)
++ **Value type** – Single-valued
+
+### aws:SourceAccount
+<a name="condition-keys-sourceaccount"></a>
+
+Use this key to compare the account ID of the resource making a service-to-service request with the account ID that you specify in the policy, but only when the request is made by an AWS service principal.
++ **Availability** – This key is included in the request context only when the call to your resource is being made directly by an [AWS service principal](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html#principal-services) on behalf of a resource for which the configuration triggered the service-to-service request. The calling service passes the account ID of the original resource to the called service.
+**Note**  
+This key provides a uniform mechanism for enforcing cross-service confused deputy control across AWS services. However, not all service integrations require the use of this global condition key. See the documentation of the AWS services you use for more information about service-specific mechanisms for mitigating cross-service confused deputy risks.  
+![aws:SourceAccount.](https://docs.aws.amazon.com/IAM/latest/UserGuide/images/sourceAccount.png)
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+You can use this condition key to help make sure that a calling service can access your resource only when the request originates from a specific account. For example, you can attach the following resource control policy (RCP) to deny requests by service principals against Amazon S3 buckets, unless they were triggered by a resource in the specified account. This policy applies the control only on requests by service principals (`"Bool": {"aws:PrincipalIsAWSService": "true"}`) that have the `aws:SourceAccount` key present (`"Null": {"aws:SourceAccount": "false"}`), so that service integrations that don't require the use of this key and calls by your principals aren't impacted. If the `aws:SourceAccount` key is present in the request context, the `Null` condition will evaluate to `true`, causing the `aws:SourceAccount` key to be enforced.
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+  "Version":"2012-10-17",		 	 	 
+  "Statement": [
+    {
+      "Sid": "RCPEnforceConfusedDeputyProtection",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": [
+        "s3:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEqualsIfExists": {
+          "aws:SourceAccount": "111122223333"
+        },
+        "Null": {
+          "aws:SourceAccount": "false"
+        },
+        "Bool": {
+          "aws:PrincipalIsAWSService": "true"
+        }
+      }
+    }
+  ]
+}
+```
+
+------
+
+In resource-based policies where the principal is an AWS service principal, use the key to limit permissions granted to the service. For example, when an Amazon S3 bucket is configured to send notifications to an Amazon SNS topic, the Amazon S3 service invokes the `sns:Publish` API operation for all configured events. In the topic policy that allows the `sns:Publish` operation, set the value of the condition key to the account ID of the Amazon S3 bucket.
+
+### aws:SourceArn
+<a name="condition-keys-sourcearn"></a>
+
+Use this key to compare the [Amazon Resource Name (ARN)](reference_identifiers.md#identifiers-arns) of the resource making a service-to-service request with the ARN that you specify in the policy, but only when the request is made by an AWS service principal. When the source's ARN includes the account ID, it is not necessary to use `aws:SourceAccount` with `aws:SourceArn`.
+
+This key does not work with the ARN of the principal making the request. Instead, use `aws:PrincipalArn`.
++ **Availability** – This key is included in the request context only when the call to your resource is being made directly by an [AWS service principal](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html#principal-services) on behalf of a resource for which the configuration triggered the service-to-service request. The calling service passes the ARN of the original resource to the called service.
+**Note**  
+This key provides a uniform mechanism for enforcing cross-service confused deputy control across AWS services. However, not all service integrations require the use of this global condition key. See the documentation of the AWS services you use for more information about service-specific mechanisms for mitigating cross-service confused deputy risks.  
+![aws:SourceArn.](https://docs.aws.amazon.com/IAM/latest/UserGuide/images/sourceArn.png)
++ **Data type** – ARN
+
+  AWS recommends that you use [ARN operators](reference_policies_elements_condition_operators.md#Conditions_ARN) instead of [string operators](reference_policies_elements_condition_operators.md#Conditions_String) when comparing ARNs.
++ **Value type** – Single-valued
+
+You can use this condition key to help make sure that a calling service can access your resource only when the request originates from a specific resource. When using a resource-based policy with an AWS service principal as the `Principal`, set this condition key's value to the ARN of the resource you want to restrict access to. For example, when an Amazon S3 bucket is configured to send notifications to an Amazon SNS topic, the Amazon S3 service invokes the `sns:Publish` API operation for all configured events. In the topic policy that allows the `sns:Publish` operation, set the value of the condition key to the ARN of the Amazon S3 bucket. For recommendations on when to use this condition key in resource-based policies, see the documentation for the AWS services you are using.
+
+### aws:SourceOrgID
+<a name="condition-keys-sourceorgid"></a>
+
+Use this key to compare the [organization ID](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_details.html) of the resource making a service-to-service request with the organization ID that you specify in the policy, but only when the request is made by an AWS service principal. When you add and remove accounts to an organization in AWS Organizations, policies that include the `aws:SourceOrgID` key automatically include the correct accounts and you don't have to manually update the policies.
++ **Availability** – This key is included in the request context only when the call to your resource is being made directly by an [AWS service principal](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html#principal-services) on behalf of a resource owned by an account which is a member of an organization. The calling service passes the organization ID of the original resource to the called service.
+**Note**  
+This key provides a uniform mechanism for enforcing cross-service confused deputy control across AWS services. However, not all service integrations require the use of this global condition key. See the documentation of the AWS services you use for more information about service-specific mechanisms for mitigating cross-service confused deputy risks.  
+![aws:SourceOrgID.](https://docs.aws.amazon.com/IAM/latest/UserGuide/images/sourceOrgID.png)
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+You can use this condition key to help make sure that a calling service can access your resource only when the request originates from a specific organization. For example, you can attach the following resource control policy (RCP) to deny requests by service principals against Amazon S3 buckets, unless they were triggered by a resource in the specified AWS organization. This policy applies the control only on requests by service principals (`"Bool": {"aws:PrincipalIsAWSService": "true"}`) that have the `aws:SourceAccount` key present (`"Null": {"aws:SourceAccount": "false"}`), so that service integrations that don't require the use of the key and calls by your principals aren't impacted. If the `aws:SourceAccount` key is present in the request context, the `Null` condition will evaluate to `true`, causing the `aws:SourceOrgID` key to be enforced. We use `aws:SourceAccount` instead of `aws:SourceOrgID` in the `Null` condition operator so that the control still applies if the request originates from an account that doesn’t belong to an organization.
+
+------
+#### [ JSON ]
+
+****  
+
+```
+{
+  "Version":"2012-10-17",		 	 	 
+  "Statement": [
+    {
+      "Sid": "RCPEnforceConfusedDeputyProtection",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": [
+        "s3:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEqualsIfExists": {
+          "aws:SourceOrgID": "o-xxxxxxxxxx"
+        },
+        "Null": {
+          "aws:SourceAccount": "false"
+        },
+        "Bool": {
+          "aws:PrincipalIsAWSService": "true"
+        }
+      }
+    }
+  ]
+}
+```
+
+------
+
+### aws:SourceOrgPaths
+<a name="condition-keys-sourceorgpaths"></a>
+
+Use this key to compare the AWS Organizations path of the resource making a service-to-service request with the organizations path that you specify in the policy, but only when the request is made by an AWS service principal. An AWS Organizations path is a text representation of the structure of an AWS Organizations entity. For more information about using and understanding paths, see [Understand the AWS Organizations entity path](access_policies_last-accessed-view-data-orgs.md#access_policies_last-accessed-viewing-orgs-entity-path).
++ **Availability** – This key is included in the request context only when the call to your resource is being made directly by an [AWS service principal](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html#principal-services) on behalf of a resource owned by an account which is a member of an organization. The calling service passes the organization path of the original resource to the called service.
+**Note**  
+This key provides a uniform mechanism for enforcing cross-service confused deputy control across AWS services. However, not all service integrations require the use of this global condition key. See the documentation of the AWS services you use for more information about service-specific mechanisms for mitigating cross-service confused deputy risks.  
+![aws:SourceOrgPaths.](https://docs.aws.amazon.com/IAM/latest/UserGuide/images/sourceOrgPaths.png)
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String) (list)
++ **Value type** – Multivalued
+
+Use this condition key to help make sure that a calling service can access your resource only when the request originates from a specific organizational unit (OU) in AWS Organizations.
+
+Similarly to `aws:SourceOrgID`, to help prevent impact on service integrations that don't require the use of this key, use the `Null` condition operator with the `aws:SourceAccount` condition key so that the control still applies if the request originates from an account that doesn’t belong to an organization.
+
+```
+{
+      "Condition": {
+        "ForAllValues:StringNotLikeIfExists": {
+            "aws:SourceOrgPaths": "o-a1b2c3d4e5/r-ab12/ou-ab12-11111111/ou-ab12-22222222/"
+        },
+        "Null": {
+          "aws:SourceAccount": "false"
+        },
+        "Bool": {
+          "aws:PrincipalIsAWSService": "true"
+        }
+      }
+}
+```
+
+`aws:SourceOrgPaths` is a multivalued condition key. Multivalued keys can have multiple values in the request context. You must use the `ForAnyValue` or `ForAllValues` set operators with [string condition operators](reference_policies_elements_condition_operators.md#Conditions_String) for this key. For more information about multivalued condition keys, see [Set operators for multivalued context keys](reference_policies_condition-single-vs-multi-valued-context-keys.md#reference_policies_condition-multi-valued-context-keys).
+
+### aws:UserAgent
+<a name="condition-keys-useragent"></a>
+
+Use this key to compare the requester's client application with the application that you specify in the policy.
++ **Availability** – This key is always included in the request context.
++ **Data type** – [String](reference_policies_elements_condition_operators.md#Conditions_String)
++ **Value type** – Single-valued
+
+**Warning**  
+This key should be used carefully. Since the `aws:UserAgent` value is provided by the caller in an HTTP header, unauthorized parties can use modified or custom browsers to provide any `aws:UserAgent` value that they choose. As a result, `aws:UserAgent` should not be used to prevent unauthorized parties from making direct AWS requests. You can use it to allow only specific client applications, and only after testing your policy.
+
+### aws:IsMcpServiceAction
+<a name="condition-keys-ismcpserviceaction"></a>
+
+Use this key to verify that the action being authorized is an MCP Service action. This key does not refer to actions taken by the MCP service to other AWS services.
++ **Availability** – This key is included in the request context and set to True only when the MCP service is authorizing an MCP service action.
++ **Data type** – [Boolean](reference_policies_elements_condition_operators.md#Conditions_Boolean)
++ **Value type** – Single-valued
+
+## Other cross-service condition keys
+<a name="condition-keys-other"></a>
+
+AWS STS supports [SAML-based federation condition keys](reference_policies_iam-condition-keys.md#condition-keys-saml) and cross-service condition keys for [OIDC federation](reference_policies_iam-condition-keys.md#condition-keys-wif). These keys are available when a user who was federated using OIDC or SAML performs AWS operations in other services.
