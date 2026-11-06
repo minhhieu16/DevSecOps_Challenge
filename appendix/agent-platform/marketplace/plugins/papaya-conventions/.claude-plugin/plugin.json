@@ -1,0 +1,7 @@
+{
+  "name": "papaya-conventions",
+  "version": "1.0.0",
+  "description": "Papaya naming/tagging and PR conventions as skills",
+  "author": { "name": "Papaya Platform Team", "email": "platform@papaya.example" },
+  "license": "UNLICENSED"
+}

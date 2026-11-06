@@ -1,0 +1,108 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCreateNonprodRolesWithBoundary",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::111122223333:role/nonprod-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PermissionsBoundary": "arn:aws:iam::111122223333:policy/nonprod-boundary"
+        }
+      }
+    },
+    {
+      "Sid": "AllowNonprodRoleLifecycleWithoutBoundaryKey",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRoleTags",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:UpdateRoleDescription",
+        "iam:DeleteRole"
+      ],
+      "Resource": "arn:aws:iam::111122223333:role/nonprod-*"
+    },
+    {
+      "Sid": "AllowPassOnlyNonprodRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::111122223333:role/nonprod-*"
+    },
+    {
+      "Sid": "DenyCreateRoleOutsideNonprodNamespace",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:DeleteRole",
+        "iam:PassRole"
+      ],
+      "NotResource": "arn:aws:iam::111122223333:role/nonprod-*"
+    },
+    {
+      "Sid": "DenyCreateRoleWithoutBoundary",
+      "Effect": "Deny",
+      "Action": "iam:CreateRole",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "iam:PermissionsBoundary": "arn:aws:iam::111122223333:policy/nonprod-boundary"
+        }
+      }
+    },
+    {
+      "Sid": "DenyBoundaryPolicyTamper",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": "arn:aws:iam::111122223333:policy/nonprod-boundary"
+    },
+    {
+      "Sid": "DenyRemovingBoundaryFromAnyRole",
+      "Effect": "Deny",
+      "Action": "iam:DeleteRolePermissionsBoundary",
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenySwappingBoundaryToAnythingElse",
+      "Effect": "Deny",
+      "Action": "iam:PutRolePermissionsBoundary",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "iam:PermissionsBoundary": "arn:aws:iam::111122223333:policy/nonprod-boundary"
+        }
+      }
+    },
+    {
+      "Sid": "DenyAttachingNonNonprodManagedPoliciesToRoles",
+      "Effect": "Deny",
+      "Action": "iam:AttachRolePolicy",
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": { "iam:PolicyARN": "arn:aws:iam::111122223333:policy/prod-*" }
+      }
+    }
+  ]
+}

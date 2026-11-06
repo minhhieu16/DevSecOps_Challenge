@@ -1,0 +1,7 @@
+{
+  "name": "papaya-infra",
+  "version": "1.0.0",
+  "description": "Papaya Pulumi scaffolding and safe preview skills",
+  "author": { "name": "Papaya Platform Team", "email": "platform@papaya.example" },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,177 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowMetricsAndAlarmsRead",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:DescribeAlarmHistory",
+        "cloudwatch:GetDashboard",
+        "cloudwatch:ListDashboards"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowLogsRead",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:DescribeQueries",
+        "logs:GetLogEvents",
+        "logs:FilterLogEvents",
+        "logs:StartQuery",
+        "logs:StopQuery",
+        "logs:GetQueryResults",
+        "logs:GetLogGroupFields",
+        "logs:GetLogRecord"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowDescribeAndListOnly",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:GetFunctionConcurrency",
+        "lambda:GetAlias",
+        "lambda:ListFunctions",
+        "lambda:ListAliases",
+        "lambda:ListVersionsByFunction",
+        "lambda:ListEventSourceMappings",
+        "lambda:GetEventSourceMapping",
+        "ecs:Describe*",
+        "ecs:List*",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ListQueues",
+        "sqs:ListDeadLetterSourceQueues",
+        "sqs:ListMessageMoveTasks",
+        "sns:GetTopicAttributes",
+        "sns:ListTopics",
+        "sns:ListSubscriptionsByTopic",
+        "states:DescribeStateMachine",
+        "states:ListStateMachines",
+        "states:ListExecutions",
+        "rds:Describe*",
+        "rds:ListTagsForResource",
+        "ec2:Describe*",
+        "cloudformation:Describe*",
+        "cloudformation:List*",
+        "cloudformation:GetTemplateSummary",
+        "elasticloadbalancing:Describe*",
+        "application-autoscaling:Describe*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowXrayRead",
+      "Effect": "Allow",
+      "Action": [
+        "xray:GetServiceGraph",
+        "xray:GetTraceSummaries",
+        "xray:BatchGetTraces",
+        "xray:GetTimeSeriesServiceStatistics",
+        "xray:GetInsightSummaries"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyPhiLogGroups",
+      "Effect": "Deny",
+      "Action": "logs:*",
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:/prod/*/phi/*",
+        "arn:aws:logs:*:*:log-group:/prod/*/phi/*:*"
+      ]
+    },
+    {
+      "Sid": "DenySecretsAndDecrypt",
+      "Effect": "Deny",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:BatchGetSecretValue",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "ssm:GetParameterHistory",
+        "kms:Decrypt",
+        "kms:GenerateDataKey*",
+        "kms:ReEncrypt*",
+        "kms:Encrypt"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyPhiBucketObjectReads",
+      "Effect": "Deny",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:GetObjectAttributes",
+        "s3:GetObjectTagging",
+        "s3:ListBucket",
+        "s3:ListBucketVersions",
+        "s3:Select*"
+      ],
+      "Resource": [
+        "arn:aws:s3:::papaya-prod-claim-ingest-phi",
+        "arn:aws:s3:::papaya-prod-claim-ingest-phi/*",
+        "arn:aws:s3:::papaya-prod-<phi-service>-phi",
+        "arn:aws:s3:::papaya-prod-<phi-service>-phi/*"
+      ]
+    },
+    {
+      "Sid": "DenyDataPlaneAndInteractiveAccess",
+      "Effect": "Deny",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:PurgeQueue",
+        "sqs:SendMessage",
+        "states:DescribeExecution",
+        "states:GetExecutionHistory",
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "rds-data:*",
+        "rds-db:connect",
+        "rds:DownloadDBLogFilePortion",
+        "rds:DownloadCompleteDBLogFile",
+        "ecs:ExecuteCommand",
+        "ssm:StartSession",
+        "ssm:SendCommand",
+        "ec2-instance-connect:*",
+        "ec2:GetPasswordData",
+        "ec2:GetConsoleOutput",
+        "ec2:GetConsoleScreenshot"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyAuditLogsAndAthena",
+      "Effect": "Deny",
+      "Action": [
+        "athena:*",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:GetDatabase",
+        "glue:GetPartitions",
+        "s3:*"
+      ],
+      "Resource": [
+        "arn:aws:athena:*:*:workgroup/*",
+        "arn:aws:glue:*:*:catalog",
+        "arn:aws:glue:*:*:database/audit",
+        "arn:aws:glue:*:*:table/audit/*",
+        "arn:aws:s3:::papaya-audit-logs",
+        "arn:aws:s3:::papaya-audit-logs/*"
+      ]
+    }
+  ]
+}

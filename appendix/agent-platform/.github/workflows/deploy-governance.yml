@@ -1,0 +1,86 @@
+# Purpose: deploy the governance layer from main: Claude Code managed settings, IAM Identity Center
+#   permission sets / deny-prod / nonprod-boundary, detections (EventBridge, Lambda, Athena named queries).
+# Controls: change management for security config (ISO A.8.9, A.5.1; HIPAA 164.308(a)(1)); this pipeline is
+#   privileged => Environment `governance` (2 reviewers, prevent self-review) + dedicated OIDC role
+#   pipeline-agent-platform (sub repo:papaya/agent-platform:environment:governance).
+name: deploy-governance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "managed-settings/**"
+      - "policies/**"
+      - "detections/**"
+      - "infra/**"
+      - ".github/workflows/deploy-governance.yml"
+
+concurrency:
+  group: deploy-governance
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001 # v4 (placeholder SHA)
+        with:
+          persist-credentials: false
+      - name: Validate JSON (managed settings, IAM policies, ruleset)
+        run: |
+          shopt -s globstar nullglob
+          for f in managed-settings/**/*.json policies/iam/**/*.json policies/github/*.json; do
+            jq -e . "$f" >/dev/null || { echo "::error file=$f::invalid JSON"; exit 1; }
+          done
+      - name: Policy tests (CrossGuard typecheck, detection fixtures)
+        run: |
+          (cd policies/crossguard && npm ci && npm run build)
+          if [ -d tests ]; then python3 -m unittest discover -s tests; fi
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: governance
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001 # v4 (placeholder SHA)
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@0000000000000000000000000000000000000004 # v4 (placeholder SHA)
+        with:
+          role-to-assume: arn:aws:iam::111122223333:role/pipeline-agent-platform
+          aws-region: ap-southeast-1
+      - name: Sync IAM permission sets, deny-prod, boundaries and detections
+        # Placeholder: choose Pulumi (infra/governance) or CloudFormation (detections/cfn). Example:
+        run: |
+          echo "pulumi up --yes --stack papaya/governance --cwd infra/governance   # placeholder"
+          echo "aws cloudformation deploy --stack-name audit-detections --template-file detections/cfn/detections.yaml --capabilities CAPABILITY_NAMED_IAM   # placeholder"
+      - name: Package managed settings
+        run: |
+          mkdir -p dist
+          cp -r managed-settings dist/managed-settings
+          jq -S . managed-settings/managed-settings.json > dist/managed-settings.canonical.json
+          sha256sum dist/managed-settings.canonical.json > dist/managed-settings.sha256
+      - uses: actions/upload-artifact@0000000000000000000000000000000000000008 # v4 (placeholder SHA)
+        with:
+          name: managed-settings-${{ github.sha }}
+          path: dist/
+      - name: Managed settings rollout checklist
+        run: |
+          {
+            echo "## Governance deploy ${GITHUB_SHA}"
+            echo "Claude Code managed settings are applied OUTSIDE this job unless an API is available."
+            echo "Verify: whether Claude.ai admin console server-managed settings have an API; if not, do the manual steps."
+            echo "- [ ] Paste dist/managed-settings.canonical.json into Claude.ai Admin settings > Claude Code > managed settings (canary ring first)"
+            echo "- [ ] Push MDM profile (managed-settings.json) to the canary group, then all (after 1 week)"
+            echo "- [ ] Confirm DET-010 (Claude Code drift query) shows no unexpected bypass/MCP/version after rollout"
+            echo "- [ ] Watch DET-008 AccessDenied spike for 24h"
+            echo "- sha256: $(cut -d' ' -f1 dist/managed-settings.sha256)"
+            echo "- approver: see Environment 'governance' review on this run"
+          } >> "$GITHUB_STEP_SUMMARY"

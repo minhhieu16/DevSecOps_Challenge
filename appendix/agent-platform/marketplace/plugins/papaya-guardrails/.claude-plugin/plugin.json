@@ -1,0 +1,7 @@
+{
+  "name": "papaya-guardrails",
+  "version": "1.0.0",
+  "description": "PreToolUse guard hook for Papaya coding agents",
+  "author": { "name": "Papaya Platform Team", "email": "platform@papaya.example" },
+  "license": "UNLICENSED"
+}

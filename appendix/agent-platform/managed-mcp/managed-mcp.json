@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "papaya-docs": {
+      "type": "http",
+      "url": "https://mcp.internal.papaya.example/papaya-docs/mcp"
+    },
+    "aws-docs": {
+      "type": "http",
+      "url": "https://mcp.internal.papaya.example/aws-docs/mcp"
+    }
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowReadOnlyDescribeForPreview",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ecs:Describe*",
+        "ecs:List*",
+        "lambda:Get*",
+        "lambda:List*",
+        "sqs:GetQueueAttributes",
+        "sqs:ListQueues",
+        "sqs:ListQueueTags",
+        "sns:GetTopicAttributes",
+        "sns:ListTopics",
+        "sns:ListTagsForResource",
+        "states:Describe*",
+        "states:List*",
+        "rds:Describe*",
+        "rds:ListTagsForResource",
+        "dynamodb:Describe*",
+        "dynamodb:List*",
+        "iam:Get*",
+        "iam:List*",
+        "logs:Describe*",
+        "logs:ListTagsForResource",
+        "events:Describe*",
+        "events:List*",
+        "apigateway:GET",
+        "cloudfront:Get*",
+        "cloudfront:List*",
+        "elasticloadbalancing:Describe*",
+        "cloudwatch:DescribeAlarms",
+        "kms:DescribeKey",
+        "kms:ListAliases",
+        "kms:GetKeyRotationStatus",
+        "kms:GetKeyPolicy",
+        "kms:ListResourceTags",
+        "ssm:DescribeParameters",
+        "ssm:ListTagsForResource",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:ListSecrets",
+        "secretsmanager:GetResourcePolicy",
+        "s3:GetBucket*",
+        "s3:ListAllMyBuckets",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "cloudformation:Describe*",
+        "cloudformation:List*",
+        "cloudformation:GetTemplate",
+        "cloudformation:GetTemplateSummary",
+        "cloudformation:ValidateTemplate",
+        "tag:GetResources"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowPulumiStateRead",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::papaya-platform-pulumi-state",
+        "arn:aws:s3:::papaya-platform-pulumi-state/*"
+      ]
+    },
+    {
+      "Sid": "AllowChangeSetsOnPlatformStacksOnly",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateChangeSet",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:ListChangeSets"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:ap-southeast-1:111122223333:stack/nonprod-*/*",
+        "arn:aws:cloudformation:ap-southeast-1:111122223333:stack/prod-*/*"
+      ]
+    },
+    {
+      "Sid": "DenyExecutingOrMutatingStacks",
+      "Effect": "Deny",
+      "Action": [
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:CreateStack",
+        "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
+        "cloudformation:CreateStackSet",
+        "cloudformation:UpdateStackSet",
+        "cloudformation:SetStackPolicy",
+        "cloudformation:ContinueUpdateRollback",
+        "cloudformation:RollbackStack"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyPassRoleAndAllIamWrites",
+      "Effect": "Deny",
+      "Action": [
+        "iam:PassRole",
+        "iam:Create*",
+        "iam:Put*",
+        "iam:Attach*",
+        "iam:Update*",
+        "iam:Delete*",
+        "iam:Detach*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenySecretValuesAndDecrypt",
+      "Effect": "Deny",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:BatchGetSecretValue",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey*",
+        "kms:ReEncrypt*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:ResourceTag/env": "nonprod"
+        }
+      }
+    },
+    {
+      "Sid": "DenyAuditBucketAndPhiData",
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::papaya-audit-logs",
+        "arn:aws:s3:::papaya-audit-logs/*",
+        "arn:aws:s3:::papaya-prod-*/*"
+      ]
+    }
+  ]
+}

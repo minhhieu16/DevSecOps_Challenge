@@ -1,0 +1,57 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyAllOnProdNamedResources",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": [
+        "arn:aws:lambda:*:*:function:prod-*",
+        "arn:aws:states:*:*:stateMachine:prod-*",
+        "arn:aws:states:*:*:execution:prod-*:*",
+        "arn:aws:sqs:*:*:prod-*",
+        "arn:aws:sns:*:*:prod-*",
+        "arn:aws:rds:*:*:cluster:prod-*",
+        "arn:aws:rds:*:*:db:prod-*",
+        "arn:aws:ecs:*:*:cluster/prod-*",
+        "arn:aws:ecs:*:*:service/prod-*/*",
+        "arn:aws:dynamodb:*:*:table/prod-*",
+        "arn:aws:cloudformation:*:*:stack/prod-*/*",
+        "arn:aws:s3:::papaya-prod-*",
+        "arn:aws:s3:::papaya-prod-*/*",
+        "arn:aws:ssm:*:*:parameter/prod/*",
+        "arn:aws:secretsmanager:*:*:secret:prod-*",
+        "arn:aws:logs:*:*:log-group:/prod/*",
+        "arn:aws:logs:*:*:log-group:/aws/lambda/prod-*",
+        "arn:aws:logs:*:*:log-group:/aws/ecs/prod-*",
+        "arn:aws:logs:*:*:log-group:/ecs/prod-*",
+        "arn:aws:logs:*:*:log-group:prod-*",
+        "arn:aws:iam::*:role/prod-*",
+        "arn:aws:kms:*:*:alias/prod-*"
+      ]
+    },
+    {
+      "Sid": "DenyAllOnProdTaggedResources",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:ResourceTag/env": "prod" } }
+    },
+    {
+      "Sid": "DenyCreatingOrRetaggingProdTaggedResources",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestTag/env": "prod" } }
+    },
+    {
+      "Sid": "DenyEc2InProdVpc",
+      "Effect": "Deny",
+      "Action": "ec2:*",
+      "Resource": "*",
+      "Condition": {
+        "ArnEquals": { "ec2:Vpc": "arn:aws:ec2:ap-southeast-1:111122223333:vpc/vpc-0prod000000000000" }
+      }
+    }
+  ]
+}

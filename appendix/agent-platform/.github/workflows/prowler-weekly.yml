@@ -1,0 +1,123 @@
+# Purpose: weekly posture scan (Prowler) of AWS (HIPAA + ISO 27001), GCP, optional Kubernetes.
+# Controls: DET-012 (posture fails vs HIPAA/ISO 27001, by severity), DET-011 (Prowler custom naming/tag
+#   check, if configured in prowler/custom-checks), ISO A.5.36/A.8.8, HIPAA 164.308(a)(8) evaluation.
+# Identity: role pipeline-prowler-readonly (SecurityAudit + ViewOnlyAccess), OIDC sub
+#   repo:papaya/agent-platform:ref:refs/heads/main (scheduled runs always use the default branch).
+# Evidence: outputs uploaded to s3://papaya-audit-logs/evidence/prowler/ (Object Lock bucket).
+name: prowler-weekly
+
+on:
+  schedule:
+    - cron: "0 21 * * 0"   # Sunday 21:00 UTC = Monday 04:00 ICT, before the Monday weekly review
+  workflow_dispatch: {}
+
+concurrency:
+  group: prowler-weekly
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  # Pin by digest in real use. Verify tag exists: https://hub.docker.com/r/prowlercloud/prowler
+  PROWLER_IMAGE: prowlercloud/prowler:5.0.0   # placeholder version; pin sha256 digest
+  AWS_REGION: ap-southeast-1
+  EVIDENCE_PREFIX: s3://papaya-audit-logs/evidence/prowler
+
+jobs:
+  aws:
+    # Only from main: the role trusts refs/heads/main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001 # v4 (placeholder SHA)
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@0000000000000000000000000000000000000004 # v4 (placeholder SHA)
+        with:
+          role-to-assume: arn:aws:iam::111122223333:role/pipeline-prowler-readonly
+          aws-region: ${{ env.AWS_REGION }}
+      - name: List compliance frameworks (for the log; confirm IDs below)
+        run: docker run --rm "$PROWLER_IMAGE" aws --list-compliance | grep -Ei 'hipaa|iso27001' || true
+      - name: "Run Prowler (AWS - HIPAA + ISO 27001)"
+        env:
+          # Verify: confirm with `prowler aws --list-compliance` that these IDs exist in the pinned version.
+          FRAMEWORKS: "hipaa_aws iso27001_2022_aws"
+        run: |
+          mkdir -p out
+          chmod 777 out
+          docker run --rm \
+            -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN -e AWS_REGION \
+            -v "$PWD/out:/home/prowler/output" -v "$PWD/prowler:/config:ro" \
+            "$PROWLER_IMAGE" aws \
+              --region "$AWS_REGION" \
+              --compliance $FRAMEWORKS \
+              --output-formats csv json-ocsf html \
+              --output-directory /home/prowler/output \
+              --config-file /config/config.yaml \
+              --custom-checks-metadata-file /config/custom-checks-metadata.yaml || [ $? -eq 3 ]   # exit 3 = findings present
+      - name: Upload evidence to Object Lock bucket
+        run: |
+          WEEK=$(date -u +%G-W%V)
+          aws s3 cp out "${EVIDENCE_PREFIX}/aws/${WEEK}/" --recursive --sse aws:kms --sse-kms-key-id alias/audit-logs
+      - uses: actions/upload-artifact@0000000000000000000000000000000000000008 # v4 (placeholder SHA)
+        with:
+          name: prowler-aws
+          path: out/
+          retention-days: 14
+      - name: Open/update Linear issues for new FAIL findings
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}   # leftover non-OIDC token; store as secret, not in env file
+          LINEAR_TEAM_KEY: SEC
+          PROWLER_OUTPUT_DIR: out
+          CLOUD: aws
+        run: python3 scripts/prowler_to_linear.py   # placeholder script (dedupe by check id + resource)
+
+  gcp:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001 # v4 (placeholder SHA)
+        with:
+          persist-credentials: false
+      - id: auth
+        uses: google-github-actions/auth@0000000000000000000000000000000000000007 # v2 (placeholder SHA)
+        with:
+          workload_identity_provider: projects/<project-number>/locations/global/workloadIdentityPools/github/providers/papaya-agent-platform
+          service_account: prowler-readonly@<gcp-project>.iam.gserviceaccount.com
+          create_credentials_file: true
+      - name: Run Prowler (GCP)
+        run: |
+          mkdir -p out && chmod 777 out
+          docker run --rm \
+            -e GOOGLE_APPLICATION_CREDENTIALS=/creds.json \
+            -v "${GOOGLE_APPLICATION_CREDENTIALS}:/creds.json:ro" \
+            -v "$PWD/out:/home/prowler/output" \
+            "$PROWLER_IMAGE" gcp --project-ids <gcp-project> \
+              --output-formats csv json-ocsf html --output-directory /home/prowler/output || [ $? -eq 3 ]
+      - name: Upload evidence (needs AWS credentials for S3)
+        uses: aws-actions/configure-aws-credentials@0000000000000000000000000000000000000004 # v4 (placeholder SHA)
+        with:
+          role-to-assume: arn:aws:iam::111122223333:role/pipeline-prowler-readonly
+          aws-region: ${{ env.AWS_REGION }}
+      - run: |
+          WEEK=$(date -u +%G-W%V)
+          aws s3 cp out "${EVIDENCE_PREFIX}/gcp/${WEEK}/" --recursive --sse aws:kms --sse-kms-key-id alias/audit-logs
+
+  kubernetes:
+    # Optional: set repo variable PROWLER_K8S=true once a read-only kubeconfig delivery is decided.
+    if: github.ref == 'refs/heads/main' && vars.PROWLER_K8S == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Placeholder
+        run: |
+          echo "Verify: k0s API is private; needs a self-hosted runner or tunnel + read-only (view) kubeconfig."
+          echo "Command: docker run prowlercloud/prowler kubernetes --kubeconfig-file /kube/config --output-formats json-ocsf"
