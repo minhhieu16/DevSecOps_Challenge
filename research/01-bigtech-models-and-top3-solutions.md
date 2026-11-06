@@ -1,16 +1,21 @@
 # Papaya — Coding Agents for DevSecOps: Big-Tech Models & Top 3 Solutions
 
-> Role: Principal DevSecOps · Version: **v2 (revised)** · Date: 2026-11-05
-> Method: 5 research sub-agents (3× Sonnet, 2× Haiku) → orchestrator synthesis → 3 fact-check sub-agents against primary sources → revision.
+> Role: Principal DevSecOps · Version: **v3.3** · Date: 2026-11-06
+> Method: 5 research sub-agents (3× Sonnet, 2× Haiku) → orchestrator synthesis → fact-check sub-agents against primary sources → revisions with the candidate's input.
 > Verification status of every non-obvious claim is in [Appendix B](#appendix-b--verification-status). Remaining ⚠️ items are flagged inline.
 
-### What changed in v2
+### Changelog
 
-- **HIPAA (material change):** Anthropic's BAA covers Claude Code on the **Enterprise** plan with HIPAA configuration enabled. The Team plan is not addressed, and Claude Code via Bedrock/Vertex is **explicitly not covered by Anthropic's BAA**. Bedrock's own coverage comes from the AWS BAA. This hardens the "agents never see PHI by default" rule and adds a Phase-0 legal gate.
-- **AWS TEAM corrected:** approval happens in the TEAM web app (Slack is notification-only), and there is no conditional auto-approval such as "on-call + incident". Solution 2's broker choice is updated accordingly.
-- **Multi-cloud coverage added:** GCP (Vertex AI), k0s, and Firebase Hosting were missing in v1.
-- **Added:** a weighted decision matrix, a compliance mapping (ISO 27001:2022 Annex A + HIPAA 164.312), a verified Claude Code managed-settings baseline, and CI prompt-injection risks for Solution 3.
-- **Corrected details:** CrossGuard has 4 enforcement levels, Serverless has no built-in diff, the AWS MCP condition key types, and the OWASP ASI titles.
+- **v3.3:** **No SIEM.** The goal is still ISO 27001 + HIPAA, with priority on parts that are self-built and self-maintained to keep costs down for a small or mid-size business. §4 is now: CloudTrail/audit logs → S3 Object Lock + Athena, critical real-time detections on EventBridge, batch detections in Athena, **Prowler** (open source) replacing Security Hub/Config for HIPAA/ISO posture checks, and a weekly review + automatically generated evidence pack. Recommended cost is ~$1.7k–6.2k/year, versus ~$5.0k–16.8k/year for the SIEM stack.
+- **v3.2:** the central SIEM moves from Google SecOps to an **AWS-native stack** (Security Hub + GuardDuty + CloudTrail Lake + EventBridge + Lambda) because of cost and contract commitment. Google SecOps becomes the upgrade path with explicit triggers. Cost comparison: [02-siem-cost-comparison.md](02-siem-cost-comparison.md).
+- **v3.1, after the candidate's decisions:**
+  1. **One AWS account, environments separated by VPC, by design**, because the team is small. Separate accounts would add more complexity than they buy. The naming and tag deny becomes the **primary** boundary, backed by a set of **compensating controls for a single account** (§3.2).
+  2. **Git is the single source of truth for every change.** Human prod write roles (`prod-operator`) are removed. Transient operations become **runbooks-as-code** in the repo, and only 2 exceptions are documented: secret values and break-glass (§3.3).
+  3. **A dedicated agent governance repo** for skills, rules, guardrails, conventions, policies and detections, for both agents and users (§5).
+  4. **Nonprod uses test data only** (synthetic or de-identified), with enforcement and detection (§3.4).
+- **v3:** 2 environments, naming `<env>-<service>-<name>`, IAM deny on `prod-*`, an observable debug exception, Google SecOps.
+- **v2.1:** config and secrets: definition in git, value in vault.
+- **v2:** HIPAA/BAA, TEAM, multi-cloud, decision matrix, compliance mapping, verified Claude Code baseline.
 
 ---
 
@@ -18,19 +23,19 @@
 
 | # | Current state | Risk | Applicable framework |
 |---|---|---|---|
-| 1 | Laptop SSO profile reaches prod, and the agent inherits it | The agent acts as an engineer with prod rights. A prompt injection or a bad command hits prod directly | Google Zero-Touch Prod; AWS "read-only default + JIT" |
-| 2 | Permission prompts are turned off | No deterministic control between the model and the shell | OWASP LLM06 Excessive Agency; Claude Code managed settings |
-| 3 | MCP servers and plugins are unreviewed | Supply chain, tool poisoning, credential theft | OWASP LLM03 / ASI04 Agentic Supply Chain; MCP security best practices |
+| 1 | Laptop SSO profile reaches prod, and the agent inherits it | Agent = an engineer with prod rights; a prompt injection or bad command hits prod directly | Google Zero-Touch Prod; AWS "read-only default + JIT" |
+| 2 | Permission prompts turned off | No deterministic control between the model and the shell | OWASP LLM06 Excessive Agency; Claude Code managed settings |
+| 3 | MCP servers and plugins unreviewed | Supply chain, tool poisoning, credential theft | OWASP LLM03 / ASI04 Agentic Supply Chain |
 | 4 | Long-lived GitHub token and AWS keys in CI secrets | One leak gives persistent, unattributed access | Microsoft SFI; OIDC / Workload Identity Federation |
-| 5 | Monitoring is fragmented and on-call is informal | No evidence for ISO A.8.15/A.8.16 or HIPAA 164.312(b); slow detection | Central audit; Google "observable actions" |
-| 6 | Production AI agents read partner and member documents | Untrusted input combined with PHI and the ability to change claim state invites prompt injection | Meta "Agents Rule of Two"; lethal trifecta |
-| 7 | Coding agents may read PHI (prod logs, DB) and send it to the model provider | HIPAA exposure if the plan or channel isn't covered by a BAA | Anthropic BAA scope; AWS BAA for Bedrock |
+| 5 | Monitoring fragmented; on-call informal | No evidence for ISO A.8.15/A.8.16 or HIPAA 164.312(b) | Self-managed audit logging + weekly review (no SIEM): CloudTrail → S3 + Athena, EventBridge, Prowler |
+| 6 | Production AI agents read partner/member documents | Untrusted input + PHI + ability to change claim state invites prompt injection | Meta "Agents Rule of Two" |
+| 7 | Coding agents may read PHI and send it to the model provider | HIPAA exposure if not covered by a BAA | Anthropic BAA scope; AWS BAA for Bedrock |
 
-**Key point:** the conflict between Engineering and Compliance is not a dilemma. All the big-tech models below resolve it the same way:
+**Key point:**
 
-> **Agents and humans get broad freedom to *propose* and *observe*; only an attributable pipeline or broker *executes* changes on prod, after a named person approves.**
+> **Agents and humans get broad freedom to *propose* and *observe*; only the pipeline *executes* changes on prod, from Git, after a named person approves.**
 
-Engineering gets speed: the agent writes the IaC, runs the preview, debugs read-only, and ships to dev and staging on its own. Compliance gets "a named person who reviewed and approved it" for every prod change. The design problem is making that approval step **fast** and **hard to bypass**.
+Compliance's wording is about **changes** ("Nothing *changes* in production…"). **Observing prod** (debugging) is governed by detective controls. **Changing prod** goes through Git, a reviewer and the pipeline.
 
 ---
 
@@ -38,179 +43,326 @@ Engineering gets speed: the agent writes the IaC, runs the preview, debugs read-
 
 ### Model 1 — Google: Zero-Touch Prod + Multi-Party Authorization (BeyondProd / BAB)
 
-- **Core idea:** no human holds standing access to prod. Every change goes through automation or small, safe APIs. Sensitive actions need a second person's approval (MPA). Code reaches prod only if it was reviewed and built on an isolated system with provenance (Binary Authorization for Borg).
+- **Core idea:** no human holds standing access to prod. Every change goes through automation or small, safe APIs, and sensitive actions need a second person's approval (MPA). Code reaches prod only if it was reviewed and built on an isolated system with provenance.
 - **Key controls:**
-  - Risk tiering: infra access is always high risk.
-  - MPA on *specific actions*, not broad group grants.
+  - Risk tiering.
+  - MPA on specific actions.
   - A proxy for commands that lack fine-grained APIs.
-  - Break-glass that is monitored, tested regularly and peer-reviewed every week.
-  - Logs that carry a justification (ticket ID).
-- **Agent guidance** (Google's paper on secure AI agents): every agent has a clear *human controller*, *limited powers*, and *observable* actions and plans.
-- **Transferable:**
-  - Default-deny for prod writes.
-  - The agent goes through a narrow tool (plan, apply, deploy) instead of a raw shell or the AWS CLI.
-  - Link each agent run to its approver and its change.
-- **Not worth it at Papaya's scale:** full ZTP, a self-built BAB, hardware trust, and service-mesh mTLS everywhere.
+  - Break-glass that is monitored, tested and reviewed weekly.
+  - Logs with a justification.
+- **Agents:** a *human controller*, *limited powers*, *observable* actions.
+- **Transferable:** default-deny for prod writes, narrow tools, linking agent run → approver → change. **Not worth it:** full ZTP, a self-built BAB, a service mesh everywhere.
 - **Sources:** [BSRS ch.5](https://google.github.io/building-secure-and-reliable-systems/raw/ch05.html) · [BAB](https://docs.cloud.google.com/docs/security/binary-authorization-for-borg) · [Google secure AI agents](https://research.google/pubs/an-introduction-to-googles-approach-for-secure-ai-agents/) · [SAIF agent self-assessment](https://saif.google/agent-risk-self-assessment)
 
 ### Model 2 — Amazon/AWS: "Humans don't deploy, pipelines do" + read-only default + JIT
 
-- **Core idea:** code review is the last manual gate. Pipelines deploy in waves (one-box → AZ → region), with bake time and automatic rollback on alarm. People get **read-only by default**, and writes go through JIT: request, approval, then expiry.
+- **Core idea:** code review is the last manual gate. Pipelines deploy in waves, with bake time and automatic rollback. People get read-only by default, and writes go through JIT.
 - **Key controls:**
-  - IAM Identity Center permission sets.
   - [TEAM](https://github.com/aws-samples/iam-identity-center-team):
-    - Approvers are Identity Center groups scoped by account or OU, and self-approval is blocked.
-    - Maximum duration is set per policy (1–8000h).
-    - Each policy has an "Approval required" toggle.
-    - **Approval happens in the TEAM web app.** Slack is only a notification channel.
-  - Approver ≠ requester, and a different person audits temporary permissions.
-  - SCPs and permission boundaries as a backstop.
-  - GitHub OIDC with a strict `sub` (e.g. `repo:ORG/REPO:environment:production`) instead of long-lived keys.
-- **For agents:**
-  - The [Agentic AI Security Scoping Matrix](https://aws.amazon.com/ai/security/agentic-ai-scoping-matrix/) puts a coding agent at **Scope 2: Prescribed Agency**. The agent proposes and a human approves, and enforcement lives outside the model (IAM, SCP, Cedar).
-  - The IAM condition keys `aws:ViaAWSMCPService` (Bool) and `aws:CalledViaAWSMCP` (String, e.g. `aws-mcp.amazonaws.com`) let a policy tell agent traffic apart from human traffic.
-  - **Limit:** they only apply to calls made through an AWS-managed MCP service. A local MCP server or a CLI call run by Claude Code looks like a direct human call. On laptops, separate roles and session tags are the real control.
-- **Transferable:** almost all of it. Papaya is AWS-primary, so this is the most "native" model.
-- **Sources:** [Hands-off deployments](https://builder.aws.com/content/3ErTKQOTKc5NIw031UePBPxTQ6I/automating-safe-hands-off-deployments) · [AG.SAD.4 JIT](https://docs.aws.amazon.com/wellarchitected/latest/devops-guidance/ag.sad.4-limit-human-access-with-just-in-time-access.html) · [TEAM docs](https://aws-samples.github.io/iam-identity-center-team/docs/overview/workflow.html) · [IAM condition keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html) · [GitHub OIDC](https://docs.github.com/en/actions/reference/security/oidc)
+    - Approvers are Identity Center groups, and self-approval is blocked.
+    - Each eligibility policy has an "Approval required" toggle.
+    - Approval happens in the web app; Slack is notification-only.
+  - SCPs and permission boundaries.
+  - GitHub OIDC with a strict `sub`.
+- **Agents:** the [Agentic AI Security Scoping Matrix](https://aws.amazon.com/ai/security/agentic-ai-scoping-matrix/) puts a coding agent at **Scope 2: Prescribed Agency**.
+  - `aws:ViaAWSMCPService` / `aws:CalledViaAWSMCP` only apply through an AWS-managed MCP service.
+  - A CLI call from Claude Code on a laptop looks like a human call, so a separate permission set for agents is the real control.
+- **Sources:** [Hands-off deployments](https://builder.aws.com/content/3ErTKQOTKc5NIw031UePBPxTQ6I/automating-safe-hands-off-deployments) · [AG.SAD.4](https://docs.aws.amazon.com/wellarchitected/latest/devops-guidance/ag.sad.4-limit-human-access-with-just-in-time-access.html) · [TEAM docs](https://aws-samples.github.io/iam-identity-center-team/docs/overview/workflow.html) · [IAM condition keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html)
 
-### Model 3 — Microsoft: SFI + PIM/JIT with approval + Enterprise Access Model + dedicated agent identities
+### Model 3 — Microsoft: SFI + PIM/JIT + Enterprise Access Model + dedicated agent identities
 
-- **Core idea:** the Secure Future Initiative is secure by design, secure by default, and secure in operations. It removes long-lived secrets, isolates credentials across boundaries, and limits which package endpoints pipelines can reach.
-- **Privileged access:**
-  - PIM activation requires approval, approvers cannot approve their own requests, and *service principals cannot approve*. Activation is time-bound.
-  - The Enterprise Access Model separates the control, management and data planes, and a lower plane never controls a higher one.
-- **Agent identity (Entra Agent ID):** agents are a separate identity type. They can *never* hold high-privilege roles (Global Admin, Privileged Role Admin…). Permissions such as `RoleManagement.ReadWrite.All` are blocked, and even an admin cannot consent to them.
+- **Core idea:** secure by design, by default, and in operations. Remove long-lived secrets.
+- **PIM:** approvers can't approve their own requests, service principals can't approve, and activation is time-bound. The control, management and data planes are separated.
+- **Entra Agent ID:** agents are their own identity type and can never hold high-privilege roles.
 - **Transferable:** "**an agent can never grant itself privileges**".
-  - Enforce it with an SCP or permission boundary that denies `iam:*`, `organizations:*` and `sso:*` to every session tagged as an agent.
-  - Map the planes: AWS Organizations and Identity Center are the control plane (agents never touch it), infra accounts are the management plane, and Aurora plus the claim-document S3 buckets are the data plane (PHI).
 - **Sources:** [SFI 07/2026](https://microsoft.com/en-us/security/blog/2026/07/10/securing-our-future-july-2026-progress-report-on-microsofts-secure-future-initiative) · [PIM approval](https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-approval-workflow) · [Entra Agent ID](https://learn.microsoft.com/en-us/entra/agent-id/authorization-agent-id)
 
-### Model 4 — GitOps + Policy-as-Code: "the PR is the only road to prod" (HashiCorp, GitLab, Spacelift/Pulumi ecosystem)
+### Model 4 — GitOps + Policy-as-Code: "the PR is the only road to prod"
 
-- **Core idea:** plan on the PR, run the policy check, get human review, and apply after merge. The approval is the PR review by a named person, so the audit trail comes for free.
+- **Core idea:** plan on the PR, run the policy check, get human review, and apply after merge. The approval is the PR review by a named person.
 - **Tooling:**
-  - **Pulumi CrossGuard:** has 4 levels: `advisory`, `mandatory`, `remediate`, `disabled`.
-    - `pulumi preview --policy-pack <dir>` runs on the open-source CLI.
-    - Server-side enforcement through policy groups, plus the ready-made packs, require a paid Pulumi Cloud edition.
-  - **GitHub rulesets:** "Require approval of the most recent reviewable push", plus CODEOWNERS.
-  - **GitHub Environments:** required reviewers (up to 6) plus **Prevent self-review**.
-- **Strengths:** cheap, quick to adopt, and direct evidence for ISO 27001 A.8.32 Change management.
-- **Weakness:** it only covers changes that go through git. Debugging, incidents and console click-ops fall outside it, and drift detection only detects; it cannot prevent.
-- **Sources:** [CrossGuard config](https://www.pulumi.com/docs/iac/crossguard/configuration/) · [Pulumi policy editions](https://www.pulumi.com/docs/insights/policy/) · [GitHub rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) · [Environments](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment)
+  - Pulumi CrossGuard (`advisory`/`mandatory`/`remediate`/`disabled`; local `--policy-pack` is free, server-side enforcement is paid).
+  - GitHub rulesets: "Require approval of the most recent reviewable push" + CODEOWNERS.
+  - Environments: required reviewers + Prevent self-review.
+- **Sources:** [CrossGuard](https://www.pulumi.com/docs/iac/crossguard/configuration/) · [GitHub rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) · [Environments](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment)
 
-### Model 5 — Agent containment: Meta "Rule of Two" + GitHub Copilot coding-agent sandbox + OWASP Agentic Top 10 + Claude Code managed settings
+### Model 5 — Agent containment: Meta "Rule of Two" + Copilot coding-agent sandbox + OWASP + Claude Code managed settings
 
-- **[Meta Agents Rule of Two](https://ai.meta.com/blog/practical-ai-agent-security/) (31/10/2025):** within one session an agent may have at most **2 of 3** properties:
-  - [A] "process untrustworthy inputs"
-  - [B] "access to sensitive systems or private data"
-  - [C] "change state or communicate externally"
-
-  An agent that needs all three needs human approval or must be split across sessions. Related: Simon Willison's [lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/).
-- **GitHub Copilot coding agent, as a reference design:**
-  - It runs in an ephemeral environment behind a firewall.
-  - It only pushes to `copilot/*` branches.
-  - Workflows don't run until a human approves them.
-  - The agent cannot approve or merge its own PR.
-  - ([GitHub docs](https://docs.github.com/en/copilot/concepts/security-governance-and-network-settings/risks-and-mitigations))
-- **OWASP:**
-  - [LLM Top 10 2025](https://genai.owasp.org/llm-top-10/): LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM03 Supply Chain, LLM06 Excessive Agency.
-  - [Agentic Top 10 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/): ASI01 Agent Goal Hijack, ASI02 Tool Misuse, ASI03 Identity & Privilege Abuse, ASI04 Agentic Supply Chain Vulnerabilities, ASI05 Unexpected Code Execution, ASI06 Memory & Context Poisoning, ASI09 Human-Agent Trust Exploitation.
-- **Claude Code enterprise controls** (the deterministic layer, checked against code.claude.com docs):
-  - **Delivery:** server-managed settings come from claude.ai (Organization settings → Claude Code → Managed settings), on the **Team and Enterprise** plans. They can also be delivered by MDM or through `managed-settings.json` (macOS: `/Library/Application Support/ClaudeCode/`, Linux: `/etc/claude-code/`).
-  - **Key controls:**
-    - `permissions.disableBypassPermissionsMode: "disable"`
-    - `allowManagedPermissionRulesOnly`, `allowManagedHooksOnly`
-    - `allowManagedMcpServersOnly` + `allowedMcpServers`
-    - `strictKnownMarketplaces`
-    - `sandbox.*`
-    - OpenTelemetry with the endpoint locked in the managed `env` block
-  - Section 2 has a concrete baseline.
+- **[Meta Agents Rule of Two](https://ai.meta.com/blog/practical-ai-agent-security/) (31/10/2025):** at most 2 of these 3:
+  - [A] untrusted input
+  - [B] sensitive data or systems
+  - [C] changing state or communicating externally
+- **GitHub Copilot coding agent:**
+  - Ephemeral environment with a firewall.
+  - Pushes only to `copilot/*`.
+  - Workflows wait for a human.
+  - Can't approve its own PR.
+- **OWASP:** [LLM Top 10 2025](https://genai.owasp.org/llm-top-10/) · [Agentic Top 10 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/). Most relevant: ASI01 Agent Goal Hijack, ASI02 Tool Misuse, ASI03 Identity & Privilege Abuse, ASI04 Agentic Supply Chain Vulnerabilities.
+- **Claude Code:**
+  - Server-managed settings (Team and Enterprise) + MDM.
+  - `permissions.disableBypassPermissionsMode`, `allowManagedPermissionRulesOnly`, `allowManagedHooksOnly`, `allowManagedMcpServersOnly`, `strictKnownMarketplaces`, `sandbox.*`.
+  - OTel with the endpoint locked.
 
 ### Summary comparison
 
 | Model | Strongest at | Weakest at | Fit for Papaya |
 |---|---|---|---|
-| 1. Google ZTP + MPA | Principles, tiering, break-glass | Very costly at full scale | Borrow the principles, not the implementation |
-| 2. AWS pipeline + JIT | AWS-native, cheap, mature | Doesn't cover the agent layer | ★★★★★ |
-| 3. Microsoft SFI/PIM/Agent ID | Agent identity, no self-escalation, planes | Azure/Entra-specific tooling | Borrow the principles, implement with IAM/SCP |
-| 4. GitOps + PaC | Change-management evidence, low cost | Doesn't cover debug or incidents | ★★★★★ (foundation) |
-| 5. Agent containment | Prompt injection, supply chain, laptop agents | Not an access model on its own | ★★★★★ (mandatory) |
+| 1. Google ZTP + MPA | Principles, break-glass | Very costly at full scale | Borrow the principles |
+| 2. AWS pipeline + JIT | AWS-native, cheap | Doesn't cover the agent layer | ★★★★★ |
+| 3. Microsoft SFI/PIM/Agent ID | No self-escalation | Entra-specific tooling | Borrow the principles |
+| 4. GitOps + PaC | Change-management evidence | Doesn't cover debug | ★★★★★ (foundation) |
+| 5. Agent containment | Prompt injection, supply chain | Not an access model | ★★★★★ (mandatory) |
 
 ---
 
-## 2. Principal assessment: Top 3 solutions for Papaya
+## 2. Principal review of the proposed operating model
 
-The 5 models aren't alternatives to each other; they are building blocks. The 3 solutions below are **3 different operating architectures**, each assembled from those blocks.
+### 2.1 The proposal (finalized after review)
 
-### 2.1 Decision matrix
+1. **Two environments, `nonprod` and `prod`, in a single AWS account, separated by VPC.**
+2. **Naming:** `<env>-<service>-<name>`; SSM `/<env>/<service>/<name>`.
+3. **IAM denies every action on `prod-*`** for humans and agents.
+4. **Every change goes through Git**, the single source of truth.
+5. **Troubleshooting and debugging are a read-only exception**, instrumented and written to central audit logs (**v3.3: no SIEM**, S3 Object Lock + Athena + EventBridge, self-managed).
+6. **A dedicated repo** for skills, rules, guardrails and conventions for agents and users.
+7. **Nonprod uses test data only.**
 
-Scores are 1–5; for "Effort", higher means cheaper and faster.
+### 2.2 What is strong
 
-| Criterion (weight) | S1 GitOps-gated | S2 = S1 + JIT broker | S3 Central agent runtime |
+- **Fits the team size.** It is simple, has few moving parts, and is easy for an auditor to understand. It maps to ISO A.8.31.
+- **Default deny on prod plus Git SSoT** is the core of Models 1, 2 and 4. Agents have no direct path to change prod.
+- **Separating observing from changing** fits Compliance's wording exactly, and Engineering isn't blocked on troubleshooting.
+- **Central audit logs + a weekly review** solve risk 5 without a SIEM. They are self-managed and cheap, and they still produce the evidence ISO/HIPAA require.
+- **The naming convention** feeds both IAM and the detection rules (classifying prod/nonprod events).
+- **A separate governance repo** gives separation of duties: an agent working in the app monorepo can't edit its own guardrails (§5).
+
+### 2.3 Gaps to close in a single-account design
+
+| # | Gap | Refinement (detailed in §3.2) |
+|---|---|---|
+| **G1** | Many actions don't support resource-level permissions (`List*`, many `Describe*`). If the resource doesn't match the action, "the statement's Effect does not apply" ([SAR](https://docs.aws.amazon.com/service-authorization/latest/reference/reference_policies_actions-resources-contextkeys.html)) | Accept it. Those are metadata reads, not changes. Protect sensitive data with **resource policies + `aws:SourceVpce` + separate KMS key policies**, which don't depend on the caller's IAM |
+| **G2** | Resources with generated IDs (EC2 `i-…`, SG, KMS UUID, ECS task) escape name matching | Add **tag deny** `aws:ResourceTag/env=prod`, `aws:RequestTag/env=prod`, and **`ec2:Vpc`** for EC2/VPC actions ⚠️ |
+| **G3** | Naming is a convention; legacy or misnamed resources fall outside the rule | CrossGuard `mandatory` checks names and tags in the PR. AWS Config rule `required-tags`. An alert (Prowler/Athena) on prod-VPC resources without `env` |
+| **G4** | **Escalating through IAM is the biggest single-account risk.** If the nonprod pipeline or an agent-written nonprod IaC can create an IAM role without limits, that role can touch `prod-*` | **Permission boundary required** on every role the nonprod pipeline creates. `iam:PassRole` restricted to `nonprod-*`. Humans and agents have no IAM write rights at all |
+| **G5** | The debug exception must be read-only, and every write goes through Git | `prod-debug` = custom read-only. Writes = PR or runbook-as-code (§3.3) |
+| **G6** | Telemetry needs attribution and response | Per-person Identity Center sessions, a separate agent permission set, a required ticket, SOAR plus weekly review. Detections-as-code live in the governance repo |
+| **G7** | `ReadOnlyAccess` exposes Lambda env vars, ECS task env and SSM SecureString ([verified](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/ReadOnlyAccess.html)) | A custom read-only policy, no secrets in env vars, and separate KMS keys for prod |
+| **G8** | Account-wide quotas are shared: Lambda concurrency, API rate limits | Reserved concurrency for critical prod functions, quota alarms, and nonprod load tests capped by concurrency |
+| **G9** | Nonprod must hold no real PHI | Test data policy + Macie on nonprod + snapshot copy detection (§3.4) |
+
+### 2.4 Verdict
+
+**I adopt the proposal as the backbone.** A single account is a reasonable **trade-off** for a small team, provided the 5 compensating controls in §3.2 are in place: identity deny, IAM escalation guard, VPC + resource policies, separate KMS keys, and quota isolation. **Revisit the account split** when one of these triggers appears:
+- A partner contract requires an isolated environment.
+- More than one team owns prod (roughly 30–50+ engineers).
+- An ISO or partner auditor raises a finding.
+- The weekly review records repeated cross-env near-misses.
+
+---
+
+## 3. Top 3 solutions for Papaya (v3.1)
+
+### 3.1 Access model (shared by all solutions)
+
+| Identity | Principal | Rights | Activation | Control type |
+|---|---|---|---|---|
+| `nonprod-developer` | Human + agent | Broad on `nonprod-*` / `env=nonprod`; **no IAM writes**; deny prod | Standing | Preventive |
+| `prod-debug` / `prod-debug-agent` | Human / agent (separate permission sets) | **Custom read-only**: metrics, non-PHI logs, describe; no secrets/PHI/decrypt | **Self-service JIT 1h** via TEAM (approval off, justification + ticket required) | **Detective** (SecOps) |
+| `pipeline-deploy-nonprod` | GitHub Actions (OIDC) | Deploy nonprod; creates roles **only with the `nonprod-boundary` permission boundary** | Merged into the nonprod branch/environment | Preventive |
+| `pipeline-deploy-prod` | GitHub Actions (OIDC, `sub=…:environment:production`) | Deploy prod IaC/app | PR approved + Environment `production` (prevent self-review) | Preventive |
+| `pipeline-ops-prod` | GitHub Actions (OIDC, `sub=…:environment:production-ops`) | **Only** the actions in the runbook whitelist (§3.3) | Runbook workflow + Environment `production-ops` approval | Preventive |
+| `prod-secret-intake` | Human (owner of the integration) | `secretsmanager:PutSecretValue` on **one specific ARN** (ABAC tag `owner`); no Get | JIT 15 minutes, 1 approver ≠ requester | Preventive + detective |
+| `prod-breakglass` | Human only | Admin, PHI | JIT 1h, 2 approvers, security alert, postmortem + **mandatory reconciliation PR** | Preventive + detective + review |
+| Runtime roles | Lambda/ECS/k0s workloads | `/prod/<service>/*` for their own service | Not human | Least privilege |
+
+**There is no human write role on prod except break-glass and secret intake.** All other changes come from Git through the pipeline.
+
+**Agents and the Rule of Two:**
+- In `prod-debug-agent`, the agent has [A] (logs contain partner content) and possibly [B], but **no [C]**. It holds no write role, and sandbox egress is limited to the cloud APIs and the model endpoint.
+- To act on what it found, the agent writes a PR or prepares parameters for a runbook. A human triggers the runbook and an approver approves it.
+
+### 3.2 Compensating controls for a single account
+
+**Layer 1: identity deny**, attached to every human/agent permission set and to `pipeline-deploy-nonprod`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyAllOnProdNamedResources",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": [
+        "arn:aws:lambda:*:*:function:prod-*",
+        "arn:aws:states:*:*:stateMachine:prod-*",
+        "arn:aws:sqs:*:*:prod-*",
+        "arn:aws:sns:*:*:prod-*",
+        "arn:aws:rds:*:*:cluster:prod-*",
+        "arn:aws:rds:*:*:db:prod-*",
+        "arn:aws:ecs:*:*:cluster/prod-*",
+        "arn:aws:ecs:*:*:service/prod-*/*",
+        "arn:aws:s3:::papaya-prod-*",
+        "arn:aws:s3:::papaya-prod-*/*",
+        "arn:aws:ssm:*:*:parameter/prod/*",
+        "arn:aws:secretsmanager:*:*:secret:prod-*",
+        "arn:aws:logs:*:*:log-group:*prod-*",
+        "arn:aws:iam::*:role/prod-*",
+        "arn:aws:kms:*:*:alias/prod-*"
+      ]
+    },
+    {
+      "Sid": "DenyAllOnProdTaggedResources",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:ResourceTag/env": "prod" } }
+    },
+    {
+      "Sid": "DenyCreatingProdTaggedResources",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestTag/env": "prod" } }
+    },
+    {
+      "Sid": "DenyEc2InProdVpc",
+      "Effect": "Deny",
+      "Action": "ec2:*",
+      "Resource": "*",
+      "Condition": { "ArnEquals": { "ec2:Vpc": "arn:aws:ec2:<region>:<acct>:vpc/<prod-vpc-id>" } }
+    }
+  ]
+}
+```
+
+S3 bucket names are global, so `papaya-prod-*` is used to avoid collisions.
+
+**Layer 2: IAM escalation guard (G4), the most important control in a single account:**
+- **Humans and agents get no IAM write rights at all:** deny `iam:Create*`, `iam:Put*`, `iam:Attach*`, `iam:Update*`, `iam:Delete*`, `iam:PassRole`. Every role and policy is created through IaC → PR → pipeline.
+- **`pipeline-deploy-nonprod`:**
+  - May only `iam:CreateRole`/`PutRolePolicy`/`AttachRolePolicy` when the condition `iam:PermissionsBoundary` = `arn:…:policy/nonprod-boundary` holds.
+  - May only name roles `nonprod-*`, and may only `iam:PassRole` roles named `nonprod-*`.
+  - May not edit or delete `nonprod-boundary` itself.
+- **`nonprod-boundary`:** contains the full layer-1 deny. Any role born in nonprod, whether written by a human or an agent, can never touch prod.
+- **`prod-*` roles** can only be created by `pipeline-deploy-prod`.
+- **Detection:** a Critical alert (EventBridge, real-time) when an IAM role is created without a boundary from outside `pipeline-deploy-prod`.
+
+**Layer 3: network + resource policies (G1)**
+- **VPCs:** separate prod and nonprod VPCs with **no peering or TGW route** between them. Each VPC has its own VPC endpoints for S3, Secrets Manager, KMS and SSM, with endpoint policies.
+- **Resource policies on prod data:**
+  - S3 PHI buckets, Secrets Manager `prod-*`, and SQS/SNS carrying PHI only accept requests through the **prod VPC endpoints** (`aws:SourceVpce`), or from the pipeline/runtime/break-glass principals.
+  - Even if an identity is accidentally granted rights, a laptop or the nonprod VPC still can't read prod data.
+  - ⚠️ Test this carefully with the AWS services that call on your behalf (`aws:ViaAWSService`).
+- **Aurora prod:** private subnets with IAM DB auth. The security group only allows prod app SGs.
+
+**Layer 4: separate KMS keys per environment**
+- `alias/prod-<service>-data`, `alias/prod-secrets`, and so on.
+- **The key policy** (a resource policy) lists only prod runtime/pipeline/break-glass principals.
+- Even if IAM is misconfigured, nothing can decrypt prod data or secrets without being in the key policy.
+
+**Layer 5: shared quota isolation (G8)**
+- Reserved concurrency for prod Lambdas on critical paths (claim ingest, FWA scoring).
+- Alarms on account concurrency and service quotas.
+- Nonprod Lambdas capped by concurrency, and load tests require their own budget.
+- Costs are separated by the cost-allocation tag `env`.
+
+**Account-wide configuration** (CloudTrail, GuardDuty, Config, S3 Block Public Access, Identity Center permission sets, TEAM) goes **only** through the governance repo's pipeline (§5), never by hand.
+
+**GCP and k0s, same principle:**
+- **GCP:** tag `env=prod` + an [IAM Deny policy](https://docs.cloud.google.com/iam/docs/deny-overview) with tag conditions (deny conditions only accept resource tags), and `exceptionPrincipals` = pipeline/runtime SAs.
+- **k0s (one cluster):**
+  - Namespaces `prod-*` / `nonprod-*`, with RoleBindings per namespace. Agents only get `view` in prod namespaces, and can't read Secrets.
+  - NetworkPolicy deny cross-env.
+  - Separate node pools (taints).
+  - An admission policy (e.g. Kyverno) requires the `env` label and blocks nonprod workloads from mounting prod secrets ⚠️.
+
+### 3.3 Git as the single source of truth: classifying changes
+
+| Change type | Path through Git | Approval | Execution |
+|---|---|---|---|
+| Code, IaC, config, feature flags, IAM, k8s manifests | PR → CI (preview, CrossGuard, diff) | CODEOWNERS + Environment `production` | `pipeline-deploy-prod` / Argo CD sync / AppConfig deployment |
+| **Persistent changes in an incident** (scale, timeouts, flags) | **A small PR** with the `hotfix-ops` label and an expedited review lane (on-call reviewer, 15-minute SLA) | 1 reviewer ≠ author | Pipeline |
+| **Transient operations** (restart, redrive DLQ, invalidate cache, rerun Step Functions, rollout restart) | **Runbook-as-code**: `.github/workflows/ops-*.yml` + runbook docs in the repo; the trigger is `workflow_dispatch` (service, action, ticket, reason) | Environment `production-ops`: required reviewer + prevent self-review | `pipeline-ops-prod`, limited to the runbook's actions |
+| Stricter variant (if Compliance wants every operation in commit history) | An "ops request" file (`ops/requests/<date>-<ticket>.yaml`) via PR; merging triggers the runbook | PR approver | `pipeline-ops-prod` |
+| Secret definition | PR (Pulumi `Secret`, rotation, policy) | CODEOWNERS platform + security | Pipeline |
+| **Exception 1: secret value** | Git holds the definition and a reference; **the value is never in Git** | `prod-secret-intake` JIT (approver ≠ requester) or automatic rotation | A human pastes it directly into the vault; agents never touch it |
+| **Exception 2: break-glass** | None at the time it is used | 2 approvers | A human, then a **reconciliation PR within 48h**; EventBridge/Athena + Pulumi drift detection track it until closed |
+
+**Notes:**
+- **Runbooks-as-code keeps Engineering fast in incidents:** the on-call engineer picks a runbook, a second person approves on GitHub mobile, and it runs in about 1–2 minutes.
+- **Every runbook execution traces back to a commit** (the workflow version), an approver, and a ticket.
+- Scaling or config changes **must not** run as runbooks, because that drifts away from the desired state in IaC. They go through a PR, using the fast lane.
+
+### 3.4 Test data policy for nonprod (G9)
+
+- **Source:** synthetic data generated by a generator in the repo. It uses fake IDs in the right format per country (VN, TH, HK), sample medical documents, and fake bank accounts.
+- **De-identification:** if prod-derived data is needed, it must go through a de-identification pipeline. HIPAA Safe Harbor (164.514(b)) removes the 18 identifier types ⚠️. The pipeline is reviewed by the DPO and runs in prod, so only de-identified output leaves.
+- **Enforcement:**
+  - Nonprod roles can't read prod buckets (layers 1 and 3).
+  - Snapshot copy/share from prod is blocked by the KMS key policy (layer 4).
+- **Detection:**
+  - **Amazon Macie** scans nonprod buckets for PII.
+  - An EventBridge rule fires on snapshot copy or replication from prod resources into `nonprod-*`.
+
+### 3.5 Decision matrix
+
+Scores are 1–5; for "Effort", higher means cheaper.
+
+| Criterion (weight) | S1 Git-gated + debug exception | S2 = S1 + runbooks-as-code + break-glass | S3 Central agent runtime |
 |---|---|---|---|
 | Compliance strength (25%) | 4 | 5 | 5 |
 | Risk reduction (25%) | 4 | 5 | 5 |
-| Engineering velocity (20%) | 3 | 4 | 2 |
-| Effort / cost (15%) | 5 | 3 | 1 |
-| Fit with current stack (15%) | 5 | 4 | 2 |
-| **End-state score (/100)** | **82** | **87** | **67** |
-| Time to value | 4–6 weeks | +6 weeks after S1 | 3–6 months |
+| Engineering velocity (20%) | 4 | 4 | 2 |
+| Effort / cost (15%) | 4 | 4 | 1 |
+| Fit with current stack (15%) | 5 | 5 | 2 |
+| **End-state score (/100)** | **83** | **93** | **67** |
+| Time to value | 4–6 weeks | +4 weeks after S1 | 3–6 months |
 
-**Reading the matrix:**
-- S2 has the highest end-state value, but it is a **superset of S1**. S1 has to exist first, and it delivers the most risk reduction per week. That is why S1 ranks #1 as the starting point and S2 is the 90-day target.
-- S3 is the most secure but scores worst on velocity and cost, so it is the long-term direction.
+In v3.1, S2's effort goes from 3 to 4 and its fit from 4 to 5, because it **no longer needs a paid JIT broker**. Runbooks-as-code reuses GitHub Actions and Environments. **S1 is still the starting point. S2 is the 90-day target and the recommended end state.**
 
-### 🥇 Solution 1 — "Agent proposes, Pipeline disposes" (GitOps-gated agents + hardened agent baseline)
+### 🥇 Solution 1 — "Agent proposes, Pipeline disposes" + an observable debug exception
 
-**Combines:** Model 4 (GitOps/PaC), Model 2 (OIDC, read-only default), Model 5 (Claude Code managed baseline), Model 3 (no self-escalation).
+**Combines:** Model 4 (GitOps/PaC), Model 2 (OIDC, read-only default), Model 5 (Claude Code baseline), Model 3 (no self-escalation), plus §4 (self-managed audit logging) and §5 (governance repo).
 
 ```mermaid
 flowchart LR
-  subgraph Laptop["Engineer laptop · Claude Code (managed settings)"]
-    A[Agent writes IaC / code] --> B[pulumi preview<br/>against dev/staging]
+  subgraph GOV["agent-platform repo (governance)"]
+    MS[managed settings · skills · hooks ·<br/>CrossGuard · IAM · detections]
   end
+  subgraph Laptop["Engineer laptop · Claude Code"]
+    A[Agent writes IaC / code] --> B[pulumi preview<br/>against nonprod]
+  end
+  MS -. server-managed settings / MDM / marketplace .-> Laptop
+  Laptop -- nonprod-developer --> NP[(nonprod VPC · nonprod-*)]
+  Laptop -. prod-debug-agent: self-service 1h,<br/>read-only + ticket .-> P[(prod VPC · prod-*)]
   B --> PR[PR in monorepo]
-  PR --> CI[CI: tests, SAST, secret scan,<br/>pulumi preview prod + CrossGuard,<br/>sls package + CFN change-set diff]
-  CI --> R{CODEOWNERS review<br/>approver ≠ last pusher}
-  R -->|approve + merge| ENV{GitHub Environment<br/>'production'<br/>required reviewer,<br/>prevent self-review}
-  ENV -->|OIDC / WIF| DEP[pulumi up · sls deploy ·<br/>Argo CD sync · firebase deploy]
-  DEP --> AUD[(Audit: PR + approver +<br/>CloudTrail/GCP Audit + OTel)]
-  Laptop -. read-only, no PHI .-> RO[(AWS/GCP/k0s prod)]
-  Laptop -- full access --> SBX[(Sandbox/dev accounts)]
+  PR --> CI[CI: tests, SAST, secret scan,<br/>CrossGuard: naming/tags/secrets,<br/>pulumi preview · CFN change-set diff]
+  CI --> R{CODEOWNERS<br/>approver ≠ last pusher}
+  R -->|merge| ENV{Environment 'production'}
+  ENV -->|OIDC| DEP[pipeline-deploy-prod]
+  DEP --> P
+  P -. CloudTrail .-> SIEM[(S3 audit logs + Athena + EventBridge)]
+  Laptop -. Claude Code OTel .-> SIEM
+  ENV -. GitHub audit .-> SIEM
 ```
 
 **How it works**
-
-1. **Credentials on the laptop:**
-   - Prod is reachable only through `ReadOnly-NoPHI`. It denies `s3:GetObject` on the claim-document buckets, `rds-data:*`, `secretsmanager:GetSecretValue`, and `kms:Decrypt` on the PHI keys.
-   - Remove every prod write profile from laptops.
-   - The agent has full rights in **sandbox and dev accounts**, so Engineering keeps its speed where risk is low.
-2. **The only road to prod:**
-   - Open a PR. CI runs `pulumi preview` against prod, posts the diff on the PR, and runs CrossGuard with `mandatory` policies: public S3, wildcard IAM, disabled encryption, deleting a DB.
-     - Don't use `remediate` on prod: auto-fixing hides the change from the reviewer.
-   - Serverless Framework has **no built-in diff**. Run `serverless package`, create a CloudFormation change set from the template, and post it on the PR (custom step). v4 also supports `provider.deploymentMethod: changesets` ⚠️ (still need to verify whether change sets can be left unexecuted for review).
-   - Reviews and approvals:
-     - Ruleset "Require approval of the most recent reviewable push" + CODEOWNERS (platform and security for `infra/**`).
-     - Environment `production` with required reviewers and Prevent self-review.
-     - The deploy job assumes the prod role through **OIDC** with `sub = repo:papaya/<monorepo>:environment:production`.
-3. **Multi-cloud coverage:**
-   - **GCP (Vertex AI/Gemini):**
-     - GitHub Actions authenticates with **Workload Identity Federation** (`google-github-actions/auth`), with an attribute condition on repository and environment.
-     - Set org policy `iam.disableServiceAccountKeyCreation`.
-     - Laptops get only the viewer role on prod projects.
-   - **k0s:**
-     - A GitOps controller (Argo CD or Flux) pulls manifests from the monorepo.
-     - Humans and agents get a read-only kubeconfig (the `view` ClusterRole, which cannot read Secrets).
-     - `kubectl exec`, `port-forward` and writes on prod go through JIT (S2).
-   - **Firebase Hosting:** replace `FIREBASE_TOKEN` (the `login:ci` token) with a service account federated through WIF.
-4. **Agent baseline (managed settings):** push it from the claude.ai admin console, and use MDM for the keys that must be in force before login.
-5. **Shorter waits (Engineering's concern):**
-   - A review-SLA rotation for platform reviewers.
-   - Risk-tiered CODEOWNERS: app config is reviewed by the team, while IAM, network, data stores and KMS need platform plus security.
-   - An agent pre-review that summarizes blast radius on the PR. It *only assists*; it is not the named approver.
-   - Small PRs.
-
-**Illustrative baseline:** keys verified against the docs on 2026-11-05. Test against the deployed version before rollout.
+1. **The access model** in §3.1 plus **compensating controls layers 1–5** in §3.2.
+2. **The only road for prod changes:**
+   - PR → `pulumi preview` + CrossGuard `mandatory`: naming `prod-`/`/prod/`, tags `env`/`service`/`owner`/`data-class`, no secrets in env vars, permission boundary on nonprod roles. Don't use `remediate` on prod.
+   - For Serverless, run `serverless package` and diff the CFN change set.
+   - CODEOWNERS + ruleset "Require approval of the most recent reviewable push", then Environment `production` with Prevent self-review, then OIDC deploy.
+   - Remove every long-lived key and PAT. GCP and Firebase use WIF.
+3. **The debug exception:**
+   - `prod-debug` / `prod-debug-agent` are separate permission sets for humans and agents, so CloudTrail tells them apart.
+   - Activation is self-service through TEAM with approval off, a required ticket, and a 1h TTL.
+   - If the design uses role chaining, set `--source-identity` (it can't be changed once set, [verified](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_monitor.html)).
+4. **Config and secrets:**
+   - Definitions live in Git under `/<env>/<service>/<name>`, and values live in the vault. Values never pass through the agent's context.
+   - Applications read secrets at runtime (ECS `secrets`, the Lambda extension, External Secrets Operator).
+   - Don't use Serverless `${ssm:}` for secrets: SecureString is auto-decrypted before the command runs, so it becomes a literal in the template ([docs](https://www.serverless.com/framework/docs/guides/variables/aws/ssm)). Verify with `serverless package`.
+5. **Claude Code managed baseline:** the source lives in the governance repo (§5). Keys verified on 2026-11-05.
 
 ```json
 {
@@ -225,15 +377,16 @@ flowchart LR
       "Read(~/.ssh/**)", "Read(~/.config/gcloud/**)", "Read(./**/.env*)",
       "Bash(pulumi up *)", "Bash(pulumi destroy *)",
       "Bash(serverless deploy *)", "Bash(sls deploy *)", "Bash(firebase deploy *)",
-      "Bash(git push --force *)", "Bash(kubectl delete *)"
+      "Bash(git push --force *)", "Bash(kubectl delete *)",
+      "Bash(aws iam *)",
+      "Bash(aws secretsmanager get-secret-value *)", "Bash(aws secretsmanager put-secret-value *)",
+      "Bash(aws ssm get-parameter *)", "Bash(aws ssm get-parameters *)", "Bash(aws ssm put-parameter *)",
+      "Bash(gcloud secrets versions access *)", "Bash(pulumi config set --secret *)",
+      "Bash(kubectl get secret *)", "Bash(kubectl create secret *)"
     ]
   },
-  "allowedMcpServers": [
-    { "serverUrl": "https://mcp.internal.papaya.example/*" }
-  ],
-  "strictKnownMarketplaces": [
-    { "source": "github", "repo": "papaya/claude-plugins" }
-  ],
+  "allowedMcpServers": [{ "serverUrl": "https://mcp.internal.papaya.example/*" }],
+  "strictKnownMarketplaces": [{ "source": "github", "repo": "papaya/agent-platform" }],
   "sandbox": {
     "enabled": true,
     "failIfUnavailable": true,
@@ -249,180 +402,321 @@ flowchart LR
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otel.internal.papaya.example"
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otel-collector.internal.papaya.example"
   }
 }
 ```
 
-**Design notes:**
-- **Use `serverUrl`/`serverCommand`, not `serverName`.** The user picks the name, so it is not a security control.
-- **`strictKnownMarketplaces: []` blocks every marketplace,** including the official one.
-- **`forceLoginOrgUUID` must come from MDM.** Server-managed settings only arrive after login.
-- **`~/.aws` is deliberately not denied in the sandbox.** The agent needs the CLI to debug with the read-only role. Since laptops no longer hold any write profiles, the agent reading the RO token is acceptable (≤1h, no PHI).
-- **IAM is the real control; permission rules are defense-in-depth.** A deny rule can be routed around through another tool, but an IAM deny cannot.
+**Notes on the baseline:**
+- **Use `serverUrl`/`serverCommand`, not `serverName`**, which the user names.
+- **`strictKnownMarketplaces: []` blocks everything.**
+- **`forceLoginOrgUUID` comes from MDM.**
+- **IAM is the real control; permission rules are defense-in-depth.**
 
-**Why it is #1**
-- It satisfies both quotes without trading one away. Engineers still "ship their own infra changes" through a PR, and every prod change has a named approver that GitHub records automatically.
-- It reuses existing tooling (monorepo, Pulumi, GitHub Actions, Claude Code). No new vendor is needed.
-- It closes risks 1, 2, 3, 4 and 7 (via the NoPHI default) in about 4–6 weeks.
+**Why #1:** it fits the team size (one account, existing tooling), satisfies both quotes, and closes risks 1, 2, 3, 4, 5 and 7.
 
 **Trade-offs**
 | Gain | Cost |
 |---|---|
-| Strong audit trail, almost free | Every prod change waits for a reviewer, adding lead time (minutes to hours) |
-| Low cost, existing tooling | **Doesn't cover incidents or debugging** that need writes (restart ECS, redrive DLQ, scale) |
-| The agent never holds prod write credentials, which contains prompt injection | Serverless needs a custom diff step; the server-side CrossGuard features cost money |
-| Policy-as-code catches the agent's mistakes | Click-ops in the console sits outside GitOps. Needs drift detection plus an SCP or permission-set deny on console writes in prod |
-| Uniform model across AWS, GCP, k0s and Firebase | Reviewer fatigue: many agent PRs lead to rubber-stamping. Needs risk-tiering and small PRs |
+| Simple single-account model with no multi-account overhead | Weaker blast-radius isolation than separate accounts. Depends on layers 1–5 being correct: one IAM policy mistake has a bigger impact |
+| Prod changes always come from Git with an approver | Every change waits for a reviewer. Incidents need the fast lane (S2) |
+| Debugging isn't blocked | The debug exception only works if the detection rules, the weekly review and the responders work |
+| Naming and tags feed both IAM and the detection rules | Legacy resources need renaming or tagging; `List*`/`Describe*` metadata is still readable (G1) |
+| Agents never hold prod write credentials | Moving `${ssm:}` to runtime fetch means changing application code |
 
 ---
 
-### 🥈 Solution 2 — S1 + JIT access broker for operations (agent-aware JIT elevation) — **90-day target**
+### 🥈 Solution 2 — S1 + runbooks-as-code + break-glass (complete Git SSoT) — **90-day target, recommended end state**
 
-**Combines:** Model 2 (JIT), Model 1 (MPA, break-glass), Model 3 (PIM-style approval, time-boxed), Model 5 (Rule of Two for debug sessions).
+**Combines:** Model 4 (GitOps applied to operations), Model 2 (pipelines execute), Model 1 (MPA, break-glass), Model 5 (Rule of Two).
 
-**Adds to S1:** an operations path for work that can't go through a PR: incidents, debugging that needs data reads, and one-off runbook actions.
-
-1. **Access tiers** (Identity Center permission sets + k0s RBAC + GCP IAM):
-
-   | Tier | Purpose | TTL | Approval |
-   |---|---|---|---|
-   | `T0-ReadOnly-NoPHI` | Laptop default | Standing | None |
-   | `T1-Operator` | Runbook actions: restart service, redrive DLQ, scale, invalidate cache, `kubectl rollout restart` | 1h | 1 approver; *policy-based auto-approval* if the requester is on-call and has an open incident (needs a broker that supports it) |
-   | `T2-DataRead-PHI` | Read PHI **for a specific tenant/country** (ABAC on tags `tenant`, `country`) | 30 min | Security or DPO + ticket + justification |
-   | `T3-BreakGlass-Admin` | Emergency | 1h | 2 approvers (MPA), alert to the security channel, mandatory postmortem, weekly review |
-
-2. **Choosing a broker (corrected in v2):**
-   - **AWS TEAM:** free and native. But approval is web-app only, it has no conditional auto-approval (only an on/off "Approval required" per policy), and it covers AWS only. A good fit if Compliance doesn't accept auto-approval.
-   - **Common Fate / Granted:** CLI-first and approves in Slack. Auto-approval rules (e.g. on-call) and break-glass are written in Cedar. Covers AWS plus GCP. ⚠️ Check current pricing.
-   - **Teleport:** if one broker should cover AWS, k0s (kubectl), DBs and SSH. Identity Governance needs Enterprise, so it is the most expensive.
-   - **Principal call:** start with **TEAM** for AWS (zero cost, quick to prove the process). Move to Common Fate or Teleport once k0s and GCP JIT become real needs, or once Compliance accepts approval-by-policy.
-3. **Making it agent-aware:**
-   - Elevated credentials used by an agent session carry the session tags `actor=agent`, `engineer=<id>`, `ticket=<LIN-123>`.
-   - An SCP or permission boundary denies `iam:*`, `organizations:*`, `sso:*`, `kms:ScheduleKeyDeletion`, `rds:DeleteDBCluster` and `s3:DeleteBucket` to `actor=agent`. That rules out self-escalation and irreversible actions.
-   - **Rule of Two for prod debug sessions:** when the agent reads logs or data on prod, it has [A] untrusted input (logs contain text from partner documents) and possibly [B] sensitive data. It must therefore **not have [C]**: no write role, and egress limited to the AWS endpoints and the model endpoint. To act on what it finds, open a new session with T1, or go back to a PR.
-4. **HIPAA gate (corrected in v2), required before opening T2 to agents:**
-   - Anthropic's BAA covers Claude Code only on the **Enterprise plan with HIPAA activated**: the Primary Owner accepts the BAA, applies the HIPAA configuration, and members sign in with Enterprise accounts. The **Team plan is not addressed**.
-   - Claude Code through **Bedrock/Vertex/a gateway is not covered by Anthropic's BAA**. Bedrock is on AWS's HIPAA-eligible services list, so coverage would come from **Papaya's AWS BAA** ⚠️ (confirm per model in AWS Artifact).
-   - **Options:**
-     - (a) Upgrade to Enterprise + HIPAA config.
-     - (b) Route PHI-touching sessions through Claude on Bedrock under the AWS BAA.
-     - (c) **Agents never get T2.** Only humans read PHI.
-
-     Until Legal decides, **(c) is the default**.
-
-**Why #2 (and the target end state)**
-- It answers Engineering's real need, "I want to debug… without waiting", which S1 doesn't cover.
-- It keeps Compliance's principle: every elevation has a named approver, or an approval-by-policy that a named person signed off in advance, plus expiry and logs.
-- It makes on-call formal (risk 5), because elevation is tied to incidents.
-- T3 break-glass directly meets HIPAA 164.312(a)(2)(ii) *Emergency access procedure*, a **Required** implementation specification.
+**What it adds to S1:**
+1. **Runbooks-as-code** (§3.3):
+   - A runbook library in the monorepo: `ops-restart-service`, `ops-redrive-dlq`, `ops-invalidate-cdn`, `ops-rerun-stepfn`, `ops-k8s-rollout-restart`.
+   - Each runbook has a doc, typed inputs, and its own IAM permission inside `pipeline-ops-prod`.
+   - Environment `production-ops` requires an approver ≠ the trigger.
+   - Agents can **draft parameters** or open a PR to add a new runbook, but can't trigger a prod runbook themselves.
+2. **A fast lane for persistent changes during incidents:** the `hotfix-ops` PR label, an on-call reviewer with a 15-minute SLA, and a minimal CI run (preview + mandatory policy).
+3. **Break-glass:**
+   - `prod-breakglass` through TEAM with approval on and 2 approver groups ⚠️ (TEAM docs don't state whether "one or all approvers" must approve; test it).
+   - Security is alerted, a postmortem is required, and a reconciliation PR is due within 48h.
+   - It is tested quarterly.
+   - It directly meets HIPAA 164.312(a)(2)(ii) *Emergency access procedure* (Required).
+4. **Secret intake:** `prod-secret-intake` (JIT 15 minutes, a single ARN, approver ≠ requester) for third-party values.
+5. **Agents can't escalate:** layer 2 (no IAM writes) plus deny `kms:ScheduleKeyDeletion`, `rds:DeleteDBCluster` and `s3:DeleteBucket` for every agent identity.
+6. **HIPAA gate:**
+   - Anthropic's BAA covers Claude Code on Enterprise + HIPAA configuration. The Team plan is not addressed, and Bedrock/Vertex fall outside Anthropic's BAA.
+   - Until Legal decides, **agents never read PHI**.
 
 **Trade-offs**
 | Gain | Cost |
 |---|---|
-| Covers incidents and debugging, so engineers have no reason to want "standing prod admin" | More moving parts (broker, tier policies, SCPs, Slack): +6 weeks of effort |
-| Time-boxed, so a leaked credential has little value | Policy design is easy to get wrong: T1 too broad becomes standing admin; T1 too narrow sends everyone to T3 |
-| Agent sessions are tagged, so CloudTrail separates agents from humans | TEAM has no approve-in-Slack and no conditional auto-approval, so the incident experience is slower; upgrading the broker costs money |
-| Rule of Two contains prompt injection during debugging | T1 changes are *not in git*. Drift has to be reconciled: the next PR codifies the change or it gets reverted |
-| ABAC per tenant/country fits multi-partner contracts | Approval-by-policy needs written acceptance from Compliance |
+| **Every** change traces back to Git; the only non-Git paths are 2 documented exceptions | The runbook library has to be built and maintained; a missing runbook during an incident pushes people toward break-glass |
+| No paid JIT broker; reuses GitHub Environments | Approvals depend on GitHub availability. Break-glass is the fallback if GitHub is down |
+| Fast operations (approve on mobile) with full traceability | `pipeline-ops-prod` becomes a valuable target: keep the scope tight, and limit triggers to people with write access |
+| Break-glass meets a HIPAA Required spec | Reconciliation after break-glass needs discipline (a daily rule tracks it) |
 
 ---
 
 ### 🥉 Solution 3 — Centralized Agent Runtime: agents run on managed infrastructure, laptops hold no cloud credentials
 
-**Combines:** Model 5 (Copilot-coding-agent-style sandbox), Model 1 (agent = workload identity, BeyondProd), Model 3 (dedicated agent identity), Model 2 (Scoping Matrix scope 2→3).
+- **Where agents run:** infra-capable agent tasks run on ephemeral runners (GitHub Actions + Claude Code Action, or devcontainers on EC2/k0s), with an agent identity per task type via OIDC/WIF.
+- **Laptops hold no cloud credentials.**
+- **Runner controls:** firewalled egress, credentials TTL 15–60 minutes, transcripts in S3 Object Lock (queried with Athena), MCP from a curated image.
+- **Prompt injection in CI:**
+  - Never combine `pull_request_target` with a PR-head checkout.
+  - Only writers can trigger the agent.
+  - A job that reads untrusted content gets a read-only token, and its output is a PR.
+- **Why #3:** the most secure but the most expensive (3–6 months), and it slows the debug loop. It is the **18-month direction** for background tasks.
 
-**How it works**
-- **Runners:** every infra-capable agent task (IaC changes, prod debugging, runbooks) runs on **ephemeral runners**: GitHub Actions with the Claude Code Action, or devcontainers on EC2/k0s pods.
-- **Identity:** each task type and environment gets its own **agent identity**, an IAM role or GCP service account obtained through OIDC/WIF.
-- **Triggers:** Linear, Slack, or a PR comment.
-- **Laptops** hold **no cloud credentials at all**. Claude Code on the laptop only writes code, runs tests and pushes branches.
-- **Hardening:**
-  - Firewalled egress with an allowlist.
-  - Credentials scoped to the task with a 15–60 minute TTL.
-  - Full transcripts stored in S3 with Object Lock.
-  - MCP servers come only from a container image curated by the platform team.
-- **Approval gate:**
-  - The agent posts a plan.
-  - A named approver approves it through a GitHub Environment.
-  - Only then does the job receive write credentials.
-- **CI-specific risk (prompt injection in CI):** PR content, issues and comments are all [A] untrusted input.
-  - Never use `pull_request_target` combined with checking out the PR head.
-  - Only members with write access can trigger the agent.
-  - An agent job that reads untrusted content gets a read-only token and no prod credentials. Its output is just a PR, which goes back through S1's gates.
-
-**Why #3**
-- **Strongest security:** laptops are removed from the trust boundary, the attack surface is fixed, and evidence is centralized. It also matches where the industry is going (Copilot coding agent, Claude Code GitHub Action, background agents).
-- **Too early for Papaya:**
-  - The effort is high: runner platform, image pipeline, secret brokering, transcript storage.
-  - It breaks the local dev loop.
-  - Without the S1/S2 baseline in place, Engineering is likely to bypass it and fall into the "shadow agent" anti-pattern.
-
-**Trade-offs**
 | Gain | Cost |
 |---|---|
-| No credentials on laptops; a lost laptop never touches the cloud | Highest effort (3–6 months) plus a team to operate the runner platform |
-| Uniform, reproducible environment with centrally managed MCP | Interactive debugging is slower than local (latency, context) |
-| Complete, immutable audit transcripts, strong for HIPAA/ISO | Compute plus background tokens cost more |
-| Easy to apply Rule of Two per job type | Runners hold prod roles, which makes them high-value targets; they need isolation and pinned images |
-| | The CI attack surface gets bigger (prompt injection through PRs and issues) |
-
-**Principal view:** S3 is the **18-month direction** for *autonomous/background* tasks (dependency upgrades, drift remediation, PRs generated from alerts). It does not replace S1+S2.
+| No credentials on laptops | Highest effort plus an ops team |
+| Complete, immutable transcripts | Interactive debugging is slower |
+| Easy to apply Rule of Two per job type | Runners become high-value targets; the CI attack surface grows |
 
 ---
 
-## 3. Compliance mapping
+## 4. Audit logging, detection and evidence: no SIEM, self-managed
 
-ISO 27001:2022 Annex A titles come from a secondary source ⚠️; HIPAA text is from 45 CFR 164.312.
+> **v3.3:** **No SIEM.** ISO 27001 and HIPAA don't require a SIEM product. They require Papaya to **record** activity, **protect** the logs, **review** them regularly, **respond** to incidents, and **keep evidence**. The design below meets those requirements with self-managed components that cost almost nothing to run. Comparison with the SIEM options: [02-siem-cost-comparison.md](02-siem-cost-comparison.md).
+
+**Five steps:** Log → Protect → Detect (only the critical cases, in real time) → Review (weekly, documented) → Respond + Evidence (generated automatically).
+
+```mermaid
+flowchart LR
+  subgraph Log
+    CT[CloudTrail trail<br/>mgmt free + S3 data events on PHI buckets]
+    GCPA[GCP audit logs<br/>sink → GCS]
+    K0S[k0s API audit]
+    GH[GitHub audit log]
+    CC[Claude Code OTel]
+  end
+  CT --> S3[(S3 audit bucket<br/>Object Lock · SSE-KMS<br/>Standard → Glacier · 6 years)]
+  K0S -->|Fluent Bit / OTel collector<br/>in k0s| S3
+  CC -->|OTel collector in k0s| S3
+  GH -->|audit log streaming or<br/>a scheduled Action pulling the API| S3
+  GCPA --> GCS[(GCS bucket<br/>Bucket Lock)]
+  CT -->|real-time| EB[EventBridge rules<br/>critical only]
+  EB --> L[Lambda] --> SNS[SNS → Q Developer chat → Slack]
+  L --> LN[Linear ticket]
+  S3 --> ATH[Athena<br/>partition projection]
+  ATH -->|EventBridge Scheduler<br/>hourly / daily SQL| L
+  ATH --> WR[Weekly review report<br/>+ monthly evidence pack]
+  PR[Prowler weekly<br/>HIPAA + ISO 27001 checks<br/>AWS · GCP · k8s] --> WR
+  PR --> LN
+  WR --> EV[(Evidence: S3 + Git)]
+```
+
+### 4.1 Components
+
+| Function | Component | Self-managed? | Replaces |
+|---|---|---|---|
+| Record AWS activity | **CloudTrail** trail (management events: first copy free) + data events **only for PHI buckets** | Config | — |
+| Record GCP activity | Admin Activity (always on) + Data Access for prod projects → **log sink to GCS** | Config | — |
+| Record k0s, Claude Code, GitHub | **Fluent Bit / OTel collector running in the existing k0s cluster** → S3. GitHub audit log: [streaming to S3](https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise) (documented under Enterprise Cloud; supports OIDC) or a scheduled GitHub Action pulling the API | ✅ | Bindplane / SIEM ingestion |
+| Protect logs | S3 bucket with **Object Lock (compliance mode)**, SSE-KMS with a separate key, a bucket policy denying delete, and a separate prefix per source. GCS uses **Bucket Lock** | Config | SIEM retention |
+| Query | **Athena** + [partition projection](https://docs.aws.amazon.com/athena/latest/ug/create-cloudtrail-table-partition-projection.html) over CloudTrail (gzip JSON)/OTel/k0s; BigQuery external tables over GCS when needed | ✅ | CloudTrail Lake / SIEM search |
+| Real-time detection | **EventBridge rules** (AWS management events on the default bus are **free**, [pricing](https://aws.amazon.com/eventbridge/pricing/)) → Lambda → Slack/Linear | ✅ | YARA-L / SIEM rules |
+| Batch detection | **EventBridge Scheduler → Lambda → Athena SQL**, hourly or daily | ✅ | SIEM correlation |
+| Posture / compliance checks | **Prowler** (open source) runs weekly in GitHub Actions with a read-only role (OIDC). Frameworks: HIPAA, ISO 27001 ([README](https://github.com/prowler-cloud/prowler); confirm the exact framework IDs with `prowler aws --list-compliance`). Apache-2.0, with an official GitHub Action and Docker image. Covers AWS, GCP and Kubernetes. Failed checks become Linear issues | ✅ | Security Hub CSPM + AWS Config |
+| Dashboards | **Weekly report** generated from Athena (markdown → Slack + saved to S3/Git). Optional: Grafana OSS on k0s with the [Athena data source](https://github.com/grafana/athena-datasource) (Apache-2.0) | ✅ | SIEM dashboards |
+| Threat detection | **GuardDuty** (recommended; the only managed component, because building threat intelligence in-house isn't realistic) | ❌ managed | — |
+| PII in nonprod | Preventive controls (layers 1, 3, 4) + an EventBridge rule on snapshot copy; **Macie run manually every quarter** on nonprod buckets (pay per GB) | ◐ | Continuous Macie |
+
+### 4.2 Detection rules: real-time vs batch vs review
+
+Specs and implementations live in `agent-platform/detections/`.
+
+| Rule | Implementation | Latency | Severity | Response |
+|---|---|---|---|---|
+| Out-of-pipeline prod change | **EventBridge** on CloudTrail write events (`prod-*`, `/prod/*`, `env=prod`) where the principal ∉ the allowlist | Real-time | Critical | Slack page + Linear incident |
+| IAM escalation (role without `nonprod-boundary`) | **EventBridge** `CreateRole`/`PutRolePolicy`/`AttachRolePolicy` + Lambda checks the boundary | Real-time | Critical | Incident |
+| Secret changed outside the flow | **EventBridge** `PutSecretValue`/`PutParameter` on `/prod/*` not from the pipeline/rotation/intake | Real-time | Critical | Incident, rotation |
+| Break-glass used | **EventBridge** on federation into `prod-breakglass` | Real-time | High | Postmortem + tracking |
+| Prod snapshot copied/shared to nonprod | **EventBridge** `CopySnapshot`/`ModifySnapshotAttribute`/`PutBucketReplication` | Real-time | Critical | Incident |
+| Debug session without a ticket | Lambda on TEAM requests (checks the ticket against the Linear API) | Real-time | High | Slack the engineer + lead |
+| Agent AccessDenied on secrets/PHI/KMS; denied spike | **Athena SQL hourly** (partition projection, scans only the latest hour) | ≤ 1 hour | High / Medium | Review the OTel session |
+| Break-glass not reconciled after 48h | Daily Lambda (GitHub + Linear API) | Daily | Medium | Escalation |
+| Claude Code drift (bypass, MCP outside the allowlist, version) | **Athena SQL daily** over OTel in S3 | Daily | Medium | Notify |
+| Resource breaks the naming/tag convention | CrossGuard in the PR (preventive) + **Prowler/custom check weekly** | Weekly | Medium | Ticket to the owner |
+| Posture fails (encryption, public access, MFA, logging…) | **Prowler weekly** against HIPAA/ISO 27001 | Weekly | By check | Linear issue, SLA by severity |
+| AWS threat detection | **GuardDuty** → EventBridge → Slack | Minutes | By finding | Runbook |
+
+Delivery of read-only management events to EventBridge depends on configuration ⚠️, so **AccessDenied rules go through Athena**.
+
+### 4.3 Weekly review and evidence pack
+
+These are what an auditor will ask for.
+
+- **Weekly review (30–45 minutes, platform + security, rotating):** a job generates the report automatically from Athena:
+  - Every `prod-debug*` session (who, human or agent, ticket, duration).
+  - Runbook executions and approvers.
+  - Break-glass and its reconciliation status.
+  - Real-time alerts and how they were handled.
+  - AccessDenied trends.
+  - New Prowler fails.
+
+  The reviewer **signs off** by commenting on or approving the report PR in the `agent-platform/evidence/` repo. That sign-off is the evidence for HIPAA 164.308(a)(1)(ii)(D) *Information system activity review* and ISO A.8.16.
+- **Monthly evidence pack (generated automatically):**
+  - The share of prod changes with approver ≠ last pusher (from the GitHub API).
+  - Out-of-pipeline changes (target 0).
+  - The Prowler HIPAA/ISO report.
+  - The list of users with access to prod (Identity Center).
+  - Break-glass tests.
+
+  It is stored in S3 Object Lock and also committed as a summary to Git.
+- **Metrics** (computed in the weekly report):
+  - 100% of changes come from Git with approver ≠ last pusher.
+  - 0 out-of-pipeline changes.
+  - 100% of break-glass reconciled within 48h.
+  - ≥ 98% of debug sessions have a ticket.
+  - Median debug session < 1h.
+  - Critical alert response < 15 minutes.
+  - 100% of weekly reviews signed off.
+
+### 4.4 Retention and compliance
+
+| Requirement | How it's met |
+|---|---|
+| ISO A.8.15 Logging (record + protect logs) | CloudTrail/GCP/k0s/GitHub/OTel → S3/GCS with Object Lock/Bucket Lock + a separate KMS key + delete denied |
+| ISO A.8.16 Monitoring activities | Real-time EventBridge for critical cases + hourly/daily Athena + weekly review with sign-off |
+| ISO A.8.17 Clock synchronization | AWS/GCP services timestamp in UTC from the provider's time source; k0s nodes use chrony/NTP |
+| HIPAA 164.312(b) Audit controls | CloudTrail + data events on PHI buckets + Athena |
+| HIPAA 164.308(a)(1)(ii)(D) Information system activity review | Weekly review report + sign-off |
+| HIPAA 164.308(a)(6) Security incident procedures | Real-time alerts → Linear incident → runbook → postmortem |
+| Retention | Hot: S3 Standard for 90 days → Standard-IA → Glacier Deep Archive, kept **6 years** (a conservative interpretation of HIPAA 164.316(b)(2) ⚠️; confirm with Compliance) |
+| BAA | All components run in Papaya's AWS/GCP accounts and fall under the AWS/Google Cloud BAA (check the HIPAA-eligible list for each service ⚠️). **No third-party SIEM vendor** in the PHI data flow |
+
+### 4.5 Cost and effort
+
+| | Small (~50 engineers) | Medium (~150 engineers) |
+|---|---|---|
+| **Minimum** (CloudTrail data events on PHI buckets, S3 storage, Athena, Lambda/EventBridge, Prowler on GitHub Actions, collectors on k0s) | **~$25/month (~$0.3k/year)** | **~$100/month (~$1.2k/year)** |
+| **Recommended** (+ GuardDuty, + Macie quarterly) | **~$140/month (~$1.7k/year)** | **~$520/month (~$6.2k/year)** |
+| Compare: AWS-native SIEM stack (Security Hub + CloudTrail Lake…) | ~$5.0k/year | ~$16.8k/year |
+| Initial build | ~2–3 engineer-weeks | |
+| Maintenance | ~2–3 h/week + 30–45 minutes of weekly review | |
+
+The calculation is in [02-siem-cost-comparison.md](02-siem-cost-comparison.md) §8.
+
+**Trade-offs (honest):**
+- There is no cross-source correlation in real time. Aggregation rules lag by up to 1 hour.
+- Investigations are SQL in Athena, not a SIEM interface.
+- It depends on discipline: the weekly review has to happen and be signed off. Missing one is an audit finding.
+- Glue code (Lambda, Athena SQL) has to be maintained in `agent-platform`, with tests.
+
+**When to reconsider a SIEM:** the triggers in [02-siem-cost-comparison.md](02-siem-cost-comparison.md) §7: >10 GB/day, more than 25 correlation rules, a SOC team, maintenance >4 h/week, or an auditor or partner requires one.
+
+---
+
+## 5. Agent governance repo (`papaya/agent-platform`)
+
+**Purpose:** one place that defines and distributes **how agents and people work**: skills, rules, guardrails, conventions, policies and detections. It is versioned, reviewed and released like a product.
+
+**Why a separate repo instead of the monorepo:**
+- **Separation of duties:** an agent working in the app monorepo **can't edit its own guardrails**. Managed settings outrank project settings, and the guardrails live in another repo with security in CODEOWNERS.
+- **Different owners and release cadence:** platform + security own it, and it is released in rings.
+- **The Claude Code plugin marketplace** needs a source repo. `strictKnownMarketplaces` only allows this repo.
+- **Detections and policies are code:** testable, reviewable, and with history. That is direct evidence for ISO A.5.1 and A.8.9.
+
+**Proposed structure:**
+
+```text
+agent-platform/
+├── managed-settings/          # managed-settings.json + ring overlays (canary / all)
+│                               # CI deploys it to claude.ai server-managed settings + an MDM profile
+├── managed-mcp/               # vetted MCP servers + review record (owner, scope, data access, date)
+├── marketplace/               # internal Claude Code plugin marketplace
+│   └── plugins/
+│       ├── papaya-conventions/   # skills: naming <env>-<service>-<name>, tagging, PR/commit template
+│       ├── papaya-infra/         # skills: scaffold a new service (prod/nonprod naming), pulumi preview,
+│       │                         #   Serverless change-set diff, secret definition (no value)
+│       ├── papaya-debug/         # skills: prod-debug playbook (request a TEAM session + ticket),
+│       │                         #   log/metric query recipes, read-only, Rule of Two
+│       ├── papaya-runbooks/      # skills: pick a runbook, prepare parameters, open an ops request PR;
+│       │                         #   never call AWS write APIs
+│       └── papaya-guardrails/    # hooks: PreToolUse blocks prod-* writes / secret reads / IAM;
+│                                 #   PostToolUse audit tags
+├── policies/
+│   ├── iam/                   # permission sets, deny-prod, nonprod-boundary, pipeline roles
+│   ├── crossguard/            # Pulumi policy pack: naming, tags, secrets, encryption, boundary
+│   └── k8s/                   # RBAC, NetworkPolicy, admission policies
+├── detections/                # EventBridge patterns, Athena SQL (hourly/daily), Lambda, Prowler config
+│                               #   + weekly report generator + test fixtures
+├── evidence/                  # weekly review reports (sign-off via PR) + monthly evidence pack summaries
+├── docs/
+│   ├── CLAUDE.md              # org-wide conventions for agents (imported into the monorepo)
+│   ├── agent-usage-policy.md  # what agents may/may not do, PHI, secrets, incidents
+│   └── onboarding.md
+└── tests/                     # policy unit tests, hook tests, prompt-injection fixtures
+```
+
+**Governance of the repo itself:**
+- **CODEOWNERS:** platform + security. Changes to `policies/`, `managed-settings/` and `detections/` need **2 approvals**.
+- **Release in rings:** the platform team first (canary, 1 week), then everyone. Each release is versioned with a changelog, and the denied-spike rule (Athena) watches for a spike in denied attempts after a release.
+- **Contribution:**
+  - Engineers and agents can **propose** a new skill or runbook through a PR, but agents can't approve.
+  - A new MCP server needs a review record (owner, scope, data access) before it joins the allowlist.
+- **This repo's pipeline is privileged** (Identity Center, account-wide config, EventBridge/Athena detections), so treat it like `pipeline-deploy-prod`: an environment approval and a dedicated OIDC role.
+
+---
+
+## 6. Compliance mapping
+
+ISO 27001:2022 Annex A titles come from a secondary source ⚠️; HIPAA follows 45 CFR 164.312.
 
 | Requirement | S1 | S2 | S3 | Evidence |
 |---|---|---|---|---|
-| ISO A.5.15 Access control / A.5.18 Access rights | ● | ● | ● | Permission sets, NoPHI role, periodic access review |
-| ISO A.8.2 Privileged access rights | ◐ (no standing write) | ● (JIT T1–T3) | ● | Broker logs: requester, approver, TTL |
+| ISO A.5.1 Policies for information security | ● | ● | ● | `agent-platform/docs`, versioned and reviewed |
+| ISO A.5.15 Access control / A.5.18 Access rights | ● | ● | ● | §3.1, TEAM logs, access review |
+| ISO A.5.17 Authentication information / A.8.24 Use of cryptography | ● | ● | ● | Vault + separate KMS keys per env, rotation |
+| ISO A.8.2 Privileged access rights | ◐ | ● | ● | No human write role; break-glass with MPA |
 | ISO A.8.4 Access to source code | ● | ● | ● | Rulesets, CODEOWNERS |
-| ISO A.8.9 Configuration management | ● | ● | ● | IaC in git, CrossGuard, drift detection |
-| ISO A.8.15 Logging / A.8.16 Monitoring activities | ◐ | ● | ● | CloudTrail + GCP Audit + Claude Code OTel → SIEM |
-| ISO A.8.25 Secure development life cycle / A.8.28 Secure coding | ● | ● | ● | CI: SAST, secret scan, policy |
-| ISO A.8.31 Separation of dev, test and production | ● | ● | ● | Sandbox accounts for agents, prod read-only |
-| ISO A.8.32 Change management | ● | ● (+T1 reconciliation) | ● | PR + approver + environment approval |
-| HIPAA 164.312(a)(1) Access control; (a)(2)(i) Unique user identification (Req.) | ● | ● | ● | Per-person SSO, session tags `engineer=` |
-| HIPAA 164.312(a)(2)(ii) Emergency access procedure (Req.) | ○ | ● | ● | T3 break-glass runbook + test |
-| HIPAA 164.312(b) Audit controls | ◐ | ● | ● | Central audit, retention |
-| HIPAA 164.312(d) Person or entity authentication | ● | ● | ● | SSO + MFA; OIDC for workloads |
-| HIPAA BAA for PHI sent to the model provider | ● (NoPHI default) | Gate (§2, S2.4) | Gate | Plan/contract decision |
+| ISO A.8.9 Configuration management | ● | ● | ● | Git SSoT, policy-as-code, drift detection |
+| ISO A.8.15 Logging / A.8.16 Monitoring activities | ● | ● | ● | CloudTrail/audit logs → S3 Object Lock + Athena; EventBridge real-time; weekly review signed off; detections-as-code |
+| ISO A.8.25 / A.8.28 Secure development | ● | ● | ● | CI: SAST, secret scan, policy |
+| ISO A.8.31 Separation of dev, test and production | ● | ● | ● | VPC + naming/tag deny + boundary + KMS; test data |
+| ISO A.8.32 Change management | ● | ● | ● | PR/runbook + approver; out-of-pipeline detection |
+| ISO A.8.33 Test information | ● | ● | ● | Synthetic/de-identified data, Macie |
+| HIPAA 164.312(a)(1) Access control; (a)(2)(i) Unique user identification (Req.) | ● | ● | ● | Per-person SSO, separate agent permission set |
+| HIPAA 164.312(a)(2)(ii) Emergency access procedure (Req.) | ○ | ● | ● | `prod-breakglass` |
+| HIPAA 164.312(b) Audit controls | ● | ● | ● | CloudTrail + PHI data events → S3 Object Lock (6 years) + Athena |
+| HIPAA 164.312(d) Person or entity authentication | ● | ● | ● | SSO + MFA; OIDC/WIF |
+| HIPAA BAA for PHI sent to the model provider | ● (NoPHI) | ● (NoPHI) | Gate | Plan/contract decision |
 
-● fully covered · ◐ partially · ○ not covered. Note: the HHS Security Rule NPRM (published 01/2025) **had not been finalized** as of this research ⚠️. Track it, because it may make some currently *addressable* specs mandatory.
+● fully covered · ◐ partially · ○ not covered.
 
 ---
 
-## 4. Recommendation and roadmap
+## 7. Recommendation and roadmap
 
-**Decision:** **S1 is the foundation, S2 is the 90-day target, and S3 is a pilot for background-agent tasks.**
+**Decision:** one account, 2 environments, naming/tag deny + 5 compensating layers, Git SSoT, an observable debug exception, and a governance repo. **S1 is the foundation; S2 is the end state in 90 days; S3 is a pilot.**
 
-| Phase | Timing | Work | Closes risk |
+| Phase | Timing | Work | Closes |
 |---|---|---|---|
-| **0 — Stop the bleeding** | Weeks 1–2 | Push the Claude Code managed baseline (server-managed + MDM for `forceLoginOrgUUID`). Move all CI to OIDC (AWS) and WIF (GCP, Firebase), revoke long-lived keys and PATs. Change laptop permission sets to ReadOnly-NoPHI on prod. **Legal decides on the BAA** (Enterprise HIPAA vs Bedrock vs no PHI for agents) | 1, 2, 3, 4, 7 |
-| **1 — S1** | Weeks 3–6 | Rulesets + CODEOWNERS + Environment `production` (prevent self-review). `pulumi preview` + CrossGuard mandatory on PRs. Serverless change-set diff. Argo CD/Flux for k0s. Deny console writes on prod. Sandbox accounts for agents | 1, 4, ISO A.8.32 |
-| **2 — S2** | Weeks 7–12 | TEAM with tiers T0–T3. Session tags `actor=agent` + SCP blocking agent self-escalation. Break-glass runbook + test + weekly review. On-call rotation tied to JIT. ABAC per tenant for T2 | 5, HIPAA 164.312(a)(2)(ii), (b) |
-| **3 — S3 pilot + Rule of Two for prod AI agents** | Months 4–6 | Claude Code Action runner for drift remediation and dependency PRs. Review the claim/FWA/document agents: any agent that reads partner documents must not write claim state directly; writes go through a human or rule gate | 6 |
+| **0 — Stop the bleeding** | Weeks 1–2 | Create `agent-platform` and push the Claude Code baseline. Move CI to OIDC/WIF and revoke long-lived keys. Attach layer 1 (deny prod) + layer 2 (no IAM writes) to every human/agent permission set. Inventory resources against the naming/tag convention. Legal decision on the BAA | 1, 2, 3, 4, 7 |
+| **1 — S1 + audit logging** | Weeks 3–6 | Rulesets/CODEOWNERS/Environment `production`. CrossGuard (naming, tags, secrets, boundary). `nonprod-boundary` + `pipeline-deploy-nonprod`. Layers 3–5 (VPC endpoints + resource policies, separate KMS, reserved concurrency). `prod-debug`/`prod-debug-agent` via TEAM. **Audit logging (no SIEM):** S3 audit bucket with Object Lock, Athena + partition projection, EventBridge rules for Critical, hourly Athena SQL, routing to Slack (Q Developer) / Linear, Prowler weekly (HIPAA/ISO), collectors on k0s, weekly report generator. Secrets → runtime fetch. Test data generator + Macie | 1, 4, 5, G1–G9 |
+| **2 — S2** | Weeks 7–10 | Runbook library + Environment `production-ops` + `pipeline-ops-prod`. `hotfix-ops` fast lane. Break-glass + quarterly test. Secret intake. Remaining detection rules + weekly review. Skills `papaya-runbooks`/`papaya-debug` | HIPAA (a)(2)(ii), (b) |
+| **3 — S3 pilot + Rule of Two for prod AI agents** | Months 3–6 | Claude Code Action runner for drift remediation. Review the claim/FWA/document agents. Re-evaluate the account-split triggers | 6 |
 
-**Success metrics:**
-- 0 long-lived cloud keys.
-- 100% of prod changes have approver ≠ last pusher (measured from GitHub + CloudTrail).
-- 0 sessions in bypass mode (OTel).
-- Median PR→prod lead time < 4h for low-risk changes.
-- 100% of T2/T3 requests have a ticket and a review.
-- Break-glass tested quarterly.
+**Success metrics:** see §4.3. The key ones:
+- 0 out-of-pipeline changes.
+- 100% of changes come from Git with approver ≠ last pusher.
+- 100% of break-glass reconciled within 48h.
+- ≥ 98% of debug sessions have a ticket.
 
 ---
 
-## 5. Open questions for Papaya
+## 8. Open questions for Papaya
 
-1. Will the Claude Code plan move from **Team Premium to Enterprise + HIPAA**? If not, should PHI-touching sessions go through Bedrock under the AWS BAA, or should agents never touch PHI?
-2. Is AWS Organizations already split into accounts per env and per tenant/country? This determines how strong the SCPs can be and how far blast radius can be limited.
-3. Will Compliance accept *approval-by-policy* (on-call + incident = auto-approve T1)? The answer decides between TEAM and a paid broker.
-4. Do laptops have MDM? Without it, `forceLoginOrgUUID` and the managed-mcp file can't be enforced before login.
-5. Do insurer partner contracts (VN/TH/HK) require data residency? That affects where agents may read data from and which model endpoint (region) to use.
+1. How closely do **existing resources follow `<env>-<service>-<name>`**? Which ones can't be renamed (Aurora clusters, S3 buckets) and need tags plus exceptions?
+2. Do the **prod and nonprod VPCs** have any peering or shared endpoints today?
+3. Does Compliance accept **`workflow_dispatch` + an environment approval** as "through Git", or does it require ops request files committed through a PR?
+4. Will the Claude Code plan move **from Team Premium to Enterprise + HIPAA**?
+5. Does the GitHub org use **Enterprise Cloud** (audit log streaming to S3), or does it need a scheduled job pulling the API? Who handles the **weekly review** rotation and sign-off?
+6. Do laptops have **MDM**?
+7. Which **triggers** should be written into policy for revisiting the account split?
 
 ---
 
@@ -434,29 +728,48 @@ ISO 27001:2022 Annex A titles come from a secondary source ⚠️; HIPAA text is
 | Research | AWS pipelines/TEAM/OIDC/Scoping Matrix | Sonnet | Model 2 |
 | Research | Microsoft SFI/PIM/Agent ID | Haiku | Model 3 |
 | Research | Agentic AI frameworks + Claude Code controls | Sonnet | Model 5 |
-| Research | GitOps/JIT brokers/ISO-HIPAA | Haiku | Model 4, broker options |
-| Fact-check | Claude Code settings + BAA | Sonnet (claude-code-guide) | §2 baseline, HIPAA gate |
-| Fact-check | AWS TEAM/IAM keys/GitHub/Pulumi/Serverless | Sonnet | Corrections to Models 2 and 4, S1, S2 |
-| Fact-check | OWASP/ISO/HIPAA/Meta | Haiku | §3 mapping, OWASP titles |
+| Research | GitOps/JIT brokers/ISO-HIPAA | Haiku | Model 4 |
+| Fact-check | Claude Code settings + BAA | Sonnet | Baseline, HIPAA gate |
+| Fact-check | AWS TEAM/IAM keys/GitHub/Pulumi/Serverless | Sonnet | Models 2 and 4, S1, S2 |
+| Fact-check | OWASP/ISO/HIPAA/Meta | Haiku | §6, OWASP titles |
+| Fact-check | IAM resource-level, SourceIdentity, ReadOnlyAccess, Serverless SSM, GCP Deny, SecOps, Claude Code OTel | Sonnet | §2–§4 |
 
 ## Appendix B — Verification status
 
 | Claim | Status | Source |
 |---|---|---|
-| Claude Code keys: `disableBypassPermissionsMode: "disable"`, `allowManagedPermissionRulesOnly`, `allowManagedHooksOnly`, `allowManagedMcpServersOnly`, `allowedMcpServers` (serverUrl/serverCommand/serverName), `strictKnownMarketplaces`, `sandbox.*`, `forceLoginOrgUUID` | ✅ Verified | [permissions](https://code.claude.com/docs/en/permissions) · [managed-mcp](https://code.claude.com/docs/en/managed-mcp) · [plugins/org](https://code.claude.com/docs/en/plugins/org) · [sandboxing](https://code.claude.com/docs/en/sandboxing) · [authentication](https://code.claude.com/docs/en/authentication) |
+| Claude Code managed keys (bypass, managed-only rules/hooks/MCP, allowedMcpServers, strictKnownMarketplaces, sandbox, forceLoginOrgUUID) | ✅ Verified | [permissions](https://code.claude.com/docs/en/permissions) · [managed-mcp](https://code.claude.com/docs/en/managed-mcp) · [plugins/org](https://code.claude.com/docs/en/plugins/org) · [sandboxing](https://code.claude.com/docs/en/sandboxing) |
 | Server-managed settings on Team + Enterprise | ✅ Verified | [server-managed-settings](https://code.claude.com/docs/en/server-managed-settings) |
-| `disableAutoMode`: `permissions.` prefix vs top-level | ⚠️ Docs disagree | permissions vs settings-reference |
-| OTel endpoint locked through managed `env`; exporter selectors not locked | ✅ Verified | [monitoring-usage](https://code.claude.com/docs/en/monitoring-usage) |
-| Anthropic BAA covers Claude Code on Enterprise + HIPAA config; not via Bedrock/Vertex; Team not addressed | ⚠️ Mostly verified, snapshots disagree on ZDR. Confirm with Anthropic sales | [BAA article](https://privacy.claude.com/en/articles/8114513-business-associate-agreements-baa-for-commercial-customers) |
-| Bedrock is HIPAA-eligible under the AWS BAA | ⚠️ Search snippet only; confirm per model in AWS Artifact | [AWS HIPAA eligible services](https://aws.amazon.com/compliance/hipaa-eligible-services-reference) |
-| `aws:ViaAWSMCPService` (Bool), `aws:CalledViaAWSMCP` (String), AWS MCP services only | ✅ Verified | [IAM condition keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html) |
-| TEAM: web-app approval, Slack notification-only, no conditional auto-approval | ✅ Verified (no approve-in-Slack is absence of evidence) | [TEAM docs](https://aws-samples.github.io/iam-identity-center-team/docs/guides/admin.html) |
-| GitHub OIDC `sub` with environment; Environments Prevent self-review; rule "Require approval of the most recent reviewable push" | ✅ Verified | GitHub docs (links in §1) |
-| CrossGuard: 4 levels; local `--policy-pack` free; server-side enforcement paid | ✅ Verified | Pulumi docs (links in §1) |
-| Serverless has no built-in diff; v4 `deploymentMethod: changesets` | ◐ Partial | [Serverless deploying](https://www.serverless.com/framework/docs/providers/aws/guide/deploying) |
-| OWASP LLM 2025 and Agentic 2026 titles | ✅ Verified | genai.owasp.org |
-| ISO 27001:2022 Annex A titles | ⚠️ Secondary source | bastion.tech; verify against ISO/IEC 27001:2022 |
-| HIPAA 164.312 structure and Required/Addressable | ✅ Verified (Cornell LII) | [LII](https://www.law.cornell.edu/cfr/text/45/164.312) |
-| HHS Security Rule NPRM not yet final | ⚠️ No final rule found; exact status unverified | [reginfo RIN 0945-AA22](https://www.reginfo.gov/public/do/eAgendaViewRule?RIN=0945-AA22) |
-| Meta Rule of Two (31/10/2025, wording of [A][B][C]) | ✅ Verified | [Meta AI blog](https://ai.meta.com/blog/practical-ai-agent-security/) |
-| Common Fate / Teleport pricing and features | ⚠️ Not fetched from primary sources | — |
+| Anthropic BAA: Claude Code on Enterprise + HIPAA config; not via Bedrock/Vertex | ⚠️ Mostly verified; confirm with sales | [BAA article](https://privacy.claude.com/en/articles/8114513-business-associate-agreements-baa-for-commercial-customers) |
+| `aws:ViaAWSMCPService` / `aws:CalledViaAWSMCP` | ✅ Verified | [IAM condition keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html) |
+| TEAM: web-app approval, Slack notification-only, "Approval required" toggle | ✅ Verified | [TEAM docs](https://aws-samples.github.io/iam-identity-center-team/docs/guides/admin.html) |
+| TEAM: multiple approver groups need "one or all" approvals | ⚠️ Not stated in the docs | — |
+| GitHub OIDC `sub`, Prevent self-review, "Require approval of the most recent reviewable push" | ✅ Verified | GitHub docs |
+| CrossGuard 4 levels; local free, server-side paid | ✅ Verified | Pulumi docs |
+| IAM: statement doesn't apply to actions without a matching resource-level permission | ✅ Verified (general rule) | [SAR](https://docs.aws.amazon.com/service-authorization/latest/reference/reference_policies_actions-resources-contextkeys.html) |
+| SourceIdentity: needs `sts:SetSourceIdentity`, kept across role chaining, can't be changed | ✅ Verified | [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_monitor.html) |
+| Identity Center permission sets populate SourceIdentity automatically | ❌ Not confirmed. Don't rely on it | — |
+| Identity Center session records the user in CloudTrail | ⚠️ Partial; check on a real event | — |
+| `ReadOnlyAccess` includes `lambda:Get*`, `ecs:Describe*`, `ssm:Get*` | ✅ Verified | [Managed policy](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/ReadOnlyAccess.html) |
+| Serverless `${ssm:}` resolves before the command runs and auto-decrypts SecureString | ◐ Verified; template content inferred | [Serverless SSM](https://www.serverless.com/framework/docs/guides/variables/aws/ssm) |
+| `ec2:Vpc` condition key for EC2 actions; `aws:SourceVpce` on resource policies; `iam:PermissionsBoundary` condition | ⚠️ From the author's knowledge; not fetched this round | IAM / EC2 docs |
+| GCP IAM Deny: `exceptionPrincipals`, conditions only on resource tags | ✅ Verified | [Deny overview](https://docs.cloud.google.com/iam/docs/deny-overview) |
+| *(Alternative, not adopted)* AWS prices (Singapore): Security Hub Essentials $3.75/unit, CloudTrail Lake $0.75/$0.50 per GB, GuardDuty $4.60/1M mgmt events, Config $0.003/CI | ✅ AWS Price List API + pricing pages (2026-11-06) | [02-siem-cost-comparison.md](02-siem-cost-comparison.md) §3 |
+| *(Alternative, not adopted)* Security Hub has no custom detection rules over raw CloudTrail; findings go to EventBridge as "Findings Imported V2" | ✅ Verified (docs) | aws.amazon.com/security-hub |
+| *(Alternative, not adopted)* Google SecOps: no public list price; G-Cloud $1.95/GB/year (Standard), unit unclear; minimum commitment not published | ⚠️ Indicative only | [02-siem-cost-comparison.md](02-siem-cost-comparison.md) §3 |
+| Volume sizing (44 / 172 GB/month) and resource counts | ⚠️ Estimates; measure in Phase 0 | [02-siem-cost-comparison.md](02-siem-cost-comparison.md) §2 |
+| EventBridge: AWS management events on the default bus are free | ✅ Verified | [EventBridge pricing](https://aws.amazon.com/eventbridge/pricing/) |
+| GuardDuty/CloudTrail/S3/Athena/Lambda on the HIPAA-eligible list | ⚠️ Not checked; check on the AWS HIPAA eligible services reference | [AWS HIPAA](https://aws.amazon.com/compliance/hipaa-eligible-services-reference) |
+| Prowler: Apache-2.0, providers AWS/GCP/Kubernetes, has HIPAA + ISO 27001 frameworks, GitHub Action + Docker | ✅ Verified (README) | [Prowler](https://github.com/prowler-cloud/prowler) |
+| Prowler framework IDs (`hipaa_aws`, `iso27001_2022_aws`), HTML/CSV output, minimum IAM role | ⚠️ Not confirmed; check with `--list-compliance` | — |
+| AWS Config has a HIPAA conformance pack; **no** ISO 27001 pack | ✅ Verified | [Config sample packs](https://docs.aws.amazon.com/config/latest/developerguide/conformancepack-sample-templates.html) |
+| GitHub audit log streaming to S3 (OIDC); documented under Enterprise Cloud; REST API for non-Enterprise orgs not confirmed | ◐ Partial | [GitHub docs](https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise) |
+| GCP: routing a sink is free (only destination storage is billed); `_Required` 400 days free | ◐ Secondary source | [GCP observability pricing](https://cloud.google.com/products/observability/pricing) |
+| CloudTrail S3 logs are gzip JSON; Athena partition projection for CloudTrail; Grafana Athena plugin Apache-2.0 | ✅ Verified | AWS docs · [grafana/athena-datasource](https://github.com/grafana/athena-datasource) |
+| *(Alternative, not adopted)* Google SecOps: retention 12 months (up to 5 years), UDM, YARA-L 2.0, SOAR, Google Cloud BAA | ✅ Verified | [Retention](https://docs.cloud.google.com/chronicle/docs/about/data-retention) · [HIPAA](https://docs.cloud.google.com/docs/security/compliance/hipaa) |
+| *(Alternative, not adopted)* SecOps ingestion: CloudTrail feed V2 (V1 ends 2027-03-15), GitHub via GCS/webhook, Forwarder EOL 2027-04-01 | ✅ Verified | [CloudTrail parser](https://docs.cloud.google.com/chronicle/docs/ingestion/default-parsers/aws-cloudtrail) · [GitHub parser](https://docs.cloud.google.com/chronicle/docs/ingestion/default-parsers/github) |
+| *(Alternative, not adopted)* SecOps: generic k8s audit parser; native OTLP; region `asia-southeast1` | ⚠️ Not confirmed | [Data residency](https://cloud.google.com/terms/secops/data-residency) |
+| Claude Code OTel: prompts redacted by default; user attributes | ✅ Verified | [monitoring-usage](https://code.claude.com/docs/en/monitoring-usage) |
+| OWASP LLM 2025 / Agentic 2026; Meta Rule of Two; HIPAA 164.312 | ✅ Verified | genai.owasp.org · ai.meta.com · [LII](https://www.law.cornell.edu/cfr/text/45/164.312) |
+| ISO 27001:2022 Annex A titles (incl. A.5.1, A.8.33) | ⚠️ Secondary source | bastion.tech |
+| HIPAA Safe Harbor 164.514(b), 18 identifiers | ⚠️ From the author's knowledge | eCFR |
