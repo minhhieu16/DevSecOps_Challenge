@@ -1,7 +1,0 @@
-{
-  "name": "papaya-debug",
-  "version": "1.0.0",
-  "description": "Read-only prod debugging skill (prod-debug-agent)",
-  "author": { "name": "Papaya Platform Team", "email": "platform@papaya.example" },
-  "license": "UNLICENSED"
-}

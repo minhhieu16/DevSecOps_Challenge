@@ -1,7 +1,0 @@
-{
-  "name": "papaya-runbooks",
-  "version": "1.0.0",
-  "description": "Runbook selection skill; human triggers prod runbooks",
-  "author": { "name": "Papaya Platform Team", "email": "platform@papaya.example" },
-  "license": "UNLICENSED"
-}
